@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "J9s1yQgwjOLFeRmmjqhnBIQGGUC9F3YK4tJNnNEWm5U=",
+  "Source": "TelemetryApi",
+  "BasePath": "_content/TelemetryApi",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
