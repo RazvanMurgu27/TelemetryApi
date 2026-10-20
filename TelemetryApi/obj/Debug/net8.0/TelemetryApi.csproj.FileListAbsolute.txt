@@ -141,3 +141,4 @@
 /Users/murgurazvan-andrei/Desktop/TelemetryEngine/TelemetryApi/obj/Debug/net8.0/TelemetryApi.pdb
 /Users/murgurazvan-andrei/Desktop/TelemetryEngine/TelemetryApi/obj/Debug/net8.0/TelemetryApi.genruntimeconfig.cache
 /Users/murgurazvan-andrei/Desktop/TelemetryEngine/TelemetryApi/obj/Debug/net8.0/ref/TelemetryApi.dll
+/Users/murgurazvan-andrei/Desktop/TelemetryEngine/TelemetryApi/obj/Debug/net8.0/TelemetryApi.sourcelink.json
