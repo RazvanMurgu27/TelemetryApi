@@ -87,7 +87,7 @@ Fluxul datelor functioneaza pe baza unui model asincron si scalabil:
 │
 └── Frontend/              # Aplicatia React (Vite)
     ├── src/
-    │   ├── components/    # Dashboard, BatteryDetails, BatteryChart, Settings, Login
+    │   ├── pages/    # Dashboard, BatteryDetails, BatteryChart, Settings, Login
     │   └── App.jsx        # Rutele principale
     ├── .env               # Variabile de mediu (VITE_API_URL)
     └── package.json       # Dependente proiect frontend
