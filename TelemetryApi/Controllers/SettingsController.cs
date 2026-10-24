@@ -1,35 +1,45 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Org.BouncyCastle.Asn1.X509;
 using System.Security.Claims;
 using TelemetryApi.Models;
 using TelemetryApi.Data;
-using TelemetryApi.Services;
 
 namespace TelemetryApi.Controllers;
 
+/// <summary>
+/// Controller RESTful dedicat configurarii parametrilor de siguranta (Thresholds) pentru pachetele de baterii LiFePO4.
+/// Toate rutele sunt protejate si necesita un token JWT valid.
+/// Implementeaza mecanisme de Fallback pentru configuratii implicite si operatiuni de tip UPSERT.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize] // Asigură că doar utilizatorii autentificați pot accesa rutele
+[Authorize] 
 public class SettingsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
 
-    // Injectăm contextul bazei de date și configurația (pentru a putea citi AdminEmail, dacă e nevoie)
+    /// <summary>
+    /// Injecteaza dependentele necesare pentru accesul la date si setarile globale ale serverului.
+    /// </summary>
     public SettingsController(AppDbContext context, IConfiguration configuration)
     {
         _context = context;
         _configuration = configuration;
     }
 
-    // GET: api/settings - Returnează setările utilizatorului curent
-    [Authorize] // Asigură că doar utilizatorii autentificați pot accesa rutele
+    /// <summary>
+    /// Recupereaza setarile curente ale unui dispozitiv BMS.
+    /// Daca dispozitivul nu a fost configurat anterior, API-ul returneaza automat un set de 
+    /// parametri impliciti, optimizati pentru chimia LiFePO4, fara a persista inca in baza de date.
+    /// </summary>
+    /// <param name="deviceId">Identificatorul hardware al dispozitivului.</param>
+    /// <returns>Obiectul de tip BatterySettings cu parametrii de functionare.</returns>
     [HttpGet("battery/{deviceId}")]
     public async Task<IActionResult> GetSettings(string deviceId)
     {
-        // Preluăm ID-ul utilizatorului din token folosind mai multe variante posibile de claim (robustete maximă)
+        // 1. Extragere claim-uri de securitate
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                             ?? User.FindFirst("id")?.Value
                             ?? User.FindFirst("userId")?.Value;
@@ -37,39 +47,38 @@ public class SettingsController : ControllerBase
         var userEmail = User.FindFirst(ClaimTypes.Email)?.Value
                             ?? User.FindFirst("email")?.Value;
 
-        // Validăm și convertim în siguranță ID-ul în integer
-        if (userIdClaim == null || !int.TryParse(userIdClaim, out int currentuserId))
+        if (userIdClaim == null || !int.TryParse(userIdClaim, out int currentUserId))
         {
             return Unauthorized(new { message = "Utilizator neautorizat sau token invalid!" });
         }
         
+        // 2. Validarea existentei resursei hardware
         var bmsModule = await _context.BmsModules.FirstOrDefaultAsync(b => b.DeviceId == deviceId);
-        if(bmsModule == null)
+        if (bmsModule == null)
         {
-            return NotFound(new {message = "Bateria nu a fost gasita in sistem!"});
+            return NotFound(new { message = "Bateria nu a fost gasita in sistem!" });
         }
 
+        // 3. Verificare IDOR si privilegii
         string adminEmailConfig = _configuration["AdminSettings:AdminEmail"] ?? string.Empty; 
-        
         bool isAdmin = (userEmail != null && userEmail.Equals(adminEmailConfig, StringComparison.OrdinalIgnoreCase));
         
-        if(!isAdmin && bmsModule.UserId != currentuserId)
+        if (!isAdmin && bmsModule.UserId != currentUserId)
         {
-            return StatusCode(403, new {message = "Acces interzis! Nu poti accesa setarile altui utilizator!"});
+            return StatusCode(403, new { message = "Acces interzis! Nu poti accesa setarile altui utilizator!" });
         }
 
-        //Cautam setarile personalizate 
-        var settings = await _context.BatterySettings
-            .FirstOrDefaultAsync(s => s.DeviceId == deviceId);
+        var settings = await _context.BatterySettings.FirstOrDefaultAsync(s => s.DeviceId == deviceId);
 
-        // Dacă utilizatorul nu are încă setări salvate, îi returnăm valorile implicite
+        // 4. Mecanismul de Fallback (Graceful Degradation)
         if (settings == null)
         {
             var owner = await _context.Users.FindAsync(bmsModule.UserId);
+            
             return Ok(new BatterySettings 
             { 
                 DeviceId = deviceId, 
-                AlertEmail = owner?.Email ?? string.Empty, // Setăm automat emailul contului ca adresă implicită de alertă
+                AlertEmail = owner?.Email ?? string.Empty, // Autocompletare inteligenta
                 MaxVoltageThreshold = 3.65,
                 MinVoltageThreshold = 2.50,
                 WarningVoltageThreshold = 2.80,
@@ -83,12 +92,15 @@ public class SettingsController : ControllerBase
         return Ok(settings);
     }
 
-    // PUT: api/settings - Actualizează sau creează setările și pragurile personalizate ale utilizatorului
-    [Authorize]
+    /// <summary>
+    /// Aplica logica de tip UPSERT (Update or Insert) pentru a salva noile setari de siguranta.
+    /// Valideaza integritatea cererii si aplica mecanisme de auto-completare pentru datele omise.
+    /// </summary>
+    /// <param name="updatedSettings">Payload-ul JSON reprezentand noile limite de operare.</param>
+    /// <returns>Confirmare standard (200 OK) pentru a semnala finalizarea tranzactiei.</returns>
     [HttpPut]
     public async Task<IActionResult> UpdateSettings([FromBody] BatterySettings updatedSettings)
     {
-        // Preluăm în siguranță ID-ul utilizatorului din token-ul JWT
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                             ?? User.FindFirst("id")?.Value
                             ?? User.FindFirst("userId")?.Value;
@@ -102,28 +114,28 @@ public class SettingsController : ControllerBase
         }
 
         var bmsModule = await _context.BmsModules.FirstOrDefaultAsync(b => b.DeviceId == updatedSettings.DeviceId);
+        
         if (bmsModule == null)
         {   
-            return NotFound(new {message = $"Bateria {bmsModule} nu există în sistem!"});
+            return NotFound(new { message = $"Dispozitivul cu ID-ul {updatedSettings.DeviceId} nu exista in sistem!" });
         }
+        
         string adminEmailConfig = _configuration["AdminSettings:AdminEmail"] ?? string.Empty;
-
         bool isAdmin = (userEmail != null && userEmail.Equals(adminEmailConfig, StringComparison.OrdinalIgnoreCase));
 
-        if(!isAdmin && bmsModule.UserId != currentUserId)
+        if (!isAdmin && bmsModule.UserId != currentUserId)
         {
-            return StatusCode(403, new {message = "Acces interzis! Nu puteti modifica setarile altui utilizator!"});
+            return StatusCode(403, new { message = "Acces interzis! Nu puteti modifica setarile altui utilizator!" });
         }
 
-        var existingSettings = await _context.BatterySettings
-            .FirstOrDefaultAsync(s => s.DeviceId == updatedSettings.DeviceId);
+        // 1. Verificam existenta inregistrarii pentru a determina actiunea DML necesara (Insert vs Update)
+        var existingSettings = await _context.BatterySettings.FirstOrDefaultAsync(s => s.DeviceId == updatedSettings.DeviceId);
 
         if (existingSettings == null)
         {
-            // Dacă nu există, creăm o înregistrare nouă legată de acest utilizator (INSERT)
+            // Executare INSERT: Resetam ID-ul pentru a evita conflictele de PK (Primary Key)
             updatedSettings.Id = 0;
 
-            //Daca campul AlertEmail a fost lasat gol, punem automat emailul contului din tabelul Users
             if (string.IsNullOrWhiteSpace(updatedSettings.AlertEmail))
             {
                 var owner = await _context.Users.FindAsync(bmsModule.UserId);
@@ -134,7 +146,7 @@ public class SettingsController : ControllerBase
         }
         else
         {
-            // Dacă există, actualizăm toate câmpurile cu noile valori primite din formular (UPDATE)
+            // Executare UPDATE: Actualizam entitatea urmarita (tracked entity) in memorie
             existingSettings.AlertEmail = updatedSettings.AlertEmail;
             existingSettings.MaxVoltageThreshold = updatedSettings.MaxVoltageThreshold;
             existingSettings.MinVoltageThreshold = updatedSettings.MinVoltageThreshold;
@@ -145,9 +157,10 @@ public class SettingsController : ControllerBase
             existingSettings.MaxDeltaVThreshold = updatedSettings.MaxDeltaVThreshold;
         }
 
-        // Salvăm modificările în baza de date SQLite
+        // 2. Commit al tranzactiei si salvare persistenta
         await _context.SaveChangesAsync();
-        Console.WriteLine($"[API] Setari actualizate -> Utilizator ID:{updatedSettings.DeviceId}");
+        
+        Console.WriteLine($"[Audit Log] Setari actualizate pentru hardware ID: {updatedSettings.DeviceId} de catre User ID: {currentUserId}");
 
         return Ok(new { message = "Toate setarile si pragurile de siguranta au fost salvate cu succes!" });
     }

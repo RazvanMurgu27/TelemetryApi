@@ -10,11 +10,13 @@ using System.Text;
 using System;
 using TelemetryApi.Models;
 using TelemetryApi.Data;
-using TelemetryApi.Services;
 
 namespace TelemetryApi.Controllers;
 
-//definire caii de acces in Swagger: /api/auth
+/// <summary>
+/// Controller responsabil cu gestionarea identitatii utilizatorilor (Identity & Access Management).
+/// Expune rutele publice pentru inregistrare si autentificare, utilizand criptarea BCrypt si token-uri JWT.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
@@ -22,74 +24,90 @@ public class AuthController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
 
-    //Constructorul: ASP.NET injecteaza autimat baza de date cand porneste Controllerul
+    /// <summary>
+    /// Constructor cu Dependency Injection. 
+    /// ASP.NET Core injecteaza automat contextul bazei de date si configuratia aplicatiei.
+    /// </summary>
     public AuthController(AppDbContext context, IConfiguration configuration)
     {
         _context = context;
         _configuration = configuration;
     }
 
-    //1.Ruta pentru creare cont (POST api/auth/register)
+    /// <summary>
+    /// Endpoint pentru crearea unui cont nou. 
+    /// Securitate: Previne inregistrarea duplicatelor si aplica hashing criptografic (BCrypt) pe parola inainte de salvare.
+    /// </summary>
+    /// <param name="request">Datele trimise de client (Email si Parola in clar).</param>
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] AuthRequest request)
     {
-        var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email); //verifica daca exista deja un utilizator cu acest email
+        // 1. Verificare existenta cont
+        var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email); 
 
         if(existingUser != null)
         {
-            return BadRequest("Exista deja un cont cu aceasta adresa de email."); //daca gaseste un cont, opreste functia si returneaza eroare
+            // Oprim executia pentru a preveni incalcarile de constrangeri in baza de date
+            return BadRequest("Exista deja un cont cu aceasta adresa de email."); 
         }
 
-        //2.Cripatre parola primita
+        // 2. Criptarea parolei (BCrypt genereaza si aplica automat un "Salt" criptografic)
         string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-        //3.Noul rand pentru tabelul users
+        // 3. Maparea datelor in modelul Entity Framework
         var newUser = new User
         {
             Email = request.Email,
-            PasswordHash= passwordHash
+            PasswordHash = passwordHash
         };
 
-        //4.Adaugarea utilizatorului si salvarea modificarilor pe hard diskul bazei de date
+        // 4. Salvarea tranzactiei in baza de date SQLite
         _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
         
         return Ok("Cont creat cu succes!");
     }
 
-    //2.Ruta pentru logare (POST /api/auth/login)
+    /// <summary>
+    /// Endpoint pentru autentificarea utilizatorilor.
+    /// Emite un JSON Web Token (JWT) Stateless daca credentialele sunt valide.
+    /// </summary>
+    /// <param name="request">Credentialele trimise de client.</param>
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] AuthRequest request)
     {
-        //1.Cautare cont in baza de date
+        // 1. Cautarea utilizatorului dupa email
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
-        //2.Daca nu s-a gasit niciun user, eroare
         if (user == null)
         {
-            return BadRequest("Contul nu exista!");
+            // Returnam un mesaj generic din motive de securitate (enumerarea conturilor)
+            return BadRequest("Credentiale invalide!");
         }
 
-        //3.Verificare parola
+        // 2. Verificarea semnaturii criptografice a parolei
         bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
 
         if(!isPasswordValid)
         {
-            return BadRequest("Parola este incorecta!");
+            return BadRequest("Credentiale invalide!");
         }
 
-        //Generare JWT
+        // 3. Generarea Token-ului JWT pentru mentinerea sesiunii (Stateless Authentication)
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_configuration["JWT:Key"]!); // ! este null forgiving operator
+        
+        // Citirea cheii secrete din User Secrets / appsettings.json
+        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!); 
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
+            // Payload-ul (Sarcina utila) contine identificatorii necesari pentru deciziile de autorizare ulterioare
             Subject = new ClaimsIdentity(new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email)
             }),
-            Expires = DateTime.UtcNow.AddHours(2),
+            Expires = DateTime.UtcNow.AddHours(2), // Previne abuzurile in caz de interceptare (Token hijacking)
             Issuer = _configuration["Jwt:Issuer"],
             Audience = _configuration["Jwt:Audience"],
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -98,12 +116,17 @@ public class AuthController : ControllerBase
         var token = tokenHandler.CreateToken(tokenDescriptor);
         var jwtString = tokenHandler.WriteToken(token);
 
-        return Ok(new {message = "Logare cu succes!", userId = user.Id, token = jwtString});
+        // Returnam token-ul impreuna cu UserId-ul pentru a facilita logica din frontend-ul React
+        return Ok(new { message = "Logare cu succes!", userId = user.Id, token = jwtString });
     }
 }
 
+/// <summary>
+/// Data Transfer Object (DTO) utilizat strict pentru incapsularea datelor de autentificare primite de la client.
+/// Decupleaza modelul intern al bazei de date (User) de contractul API-ului.
+/// </summary>
 public class AuthRequest
 {
     public string Email { get; set; } = string.Empty;
-    public string Password {get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 }

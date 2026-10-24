@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+/**
+ * Componenta Smart pentru gestionarea parametrilor de siguranta (BMS Settings).
+ * Responsabilitati:
+ * 1. Incarcarea modulelor hardware asociate utilizatorului curent.
+ * 2. Preluarea setarilor actuale pentru modulul selectat.
+ * 3. Validarea stricta a regulilor de protectie (ex: praguri termice si de voltaj) direct pe client.
+ * 4. Actualizarea parametrilor catre API-ul backend prin cereri HTTP securizate cu JWT.
+ */
 export default function BatterySettings() {
     const navigate = useNavigate();
     const userId = localStorage.getItem('userId');
@@ -20,16 +28,16 @@ export default function BatterySettings() {
         minTemperatureThreshold: 0.0,
         maxCurrentThreshold: 220.0,
         maxDeltaVThreshold: 0.20
-    })
+    });
 
-    // Functie pentru deconectare in caz de token expirat
+    // Handler pentru invalidarea sesiunii si redirectionarea catre login in cazul expirarii token-ului
     const handleLogout = () => {
         localStorage.removeItem('userId');
         localStorage.removeItem('token');
         navigate('/login');
     };
 
-    // 1. Aducem lista de baterii ale utilizatorului
+    // Efectueaza cererea HTTP pentru obtinerea listei de module BMS asociate contului
     useEffect(() => {
         if (!userId || !token) {
             navigate('/login');
@@ -38,7 +46,8 @@ export default function BatterySettings() {
 
         const fetchModules = async () => {
             try {
-                const response = await fetch(`https://localhost:7186/api/bms/user/${userId}`, {
+                const API_URL = import.meta.env.VITE_API_URL;
+                const response = await fetch(`${API_URL}/api/bms/user/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -51,25 +60,28 @@ export default function BatterySettings() {
                 if (response.ok) {
                     const data = await response.json();
                     setModules(data);
+                    
+                    // Preselectarea automata a primului dispozitiv din lista
                     if (data.length > 0) {
-                        setSelectedDeviceId(data[0].deviceId); // Selectam automat prima baterie
+                        setSelectedDeviceId(data[0].deviceId);
                     }
                 }
             } catch (error) {
-                console.error("Eroare la aducerea bateriilor", error);
+                console.error("Eroare la interceptarea dispozitivelor hardware:", error);
             }
         };
 
         fetchModules();
     }, [userId, token, navigate]);
 
-    // 2. Aducem setarile cand se schimba bateria selectata din dropdown
+    // Incarca parametrii de siguranta curenti la fiecare schimbare a hardware-ului selectat
     useEffect(() => {
         if (!selectedDeviceId) return;
 
         const fetchSettings = async () => {
             try {
-                const response = await fetch(`https://localhost:7186/api/settings/battery/${selectedDeviceId}`, {
+                const API_URL = import.meta.env.VITE_API_URL;
+                const response = await fetch(`${API_URL}/api/settings/battery/${selectedDeviceId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -79,18 +91,18 @@ export default function BatterySettings() {
                     setStatusMessage({ type: '', text: '' });
                 }
             } catch (error) {
-                console.error("Eroare la aducerea setariloe!", error);
+                console.error("Eroare la aducerea setarilor de telemetrie:", error);
             }
         };
 
         fetchSettings();
     }, [selectedDeviceId, token]);
 
-    // Gestionarea inputurilor (Aici am reparat bug-ul cu virgula live)
+    // Gestioneaza modificarile de stare ale formularului si asigura normalizarea separatoarelor zecimale
     const handleChange = (e) => {
         let { name, value } = e.target; 
         
-        // Transformăm automat orice virgulă în punct, exceptând adresa de email
+        // Transformare automata a virgulei in punct (standardizare numerica) pentru campurile non-textuale
         if (typeof value === 'string' && name !== 'alertEmail') {
             value = value.replace(',', '.');
         }
@@ -104,51 +116,50 @@ export default function BatterySettings() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // START BLOC DE VALIDARE FRONTEND
+        // Validarea parametrilor de siguranta (Frontend Validation Rules)
         if (formData.maxTemperatureThreshold > 75 || formData.maxTemperatureThreshold < 30) {
-            setStatusMessage({ type: 'error', text: 'Temperatura maxima admisa trebuie sa fie intre 30°C și 75°C!' });
+            setStatusMessage({ type: 'error', text: 'Temperatura maxima admisa trebuie sa fie intre 30°C si 75°C!' });
             return;
         }
 
         if (formData.minTemperatureThreshold < -20 || formData.minTemperatureThreshold > 15) {
-            setStatusMessage({ type: 'error', text: 'Temperatura minima admisa trebuie sa fie intre -20°C și 15°C!' });
+            setStatusMessage({ type: 'error', text: 'Temperatura minima admisa trebuie sa fie intre -20°C si 15°C!' });
             return;
         }
 
         if (formData.maxVoltageThreshold > 3.85 || formData.maxVoltageThreshold < 3.40) {
-            setStatusMessage({ type: 'error', text: 'Tensiunea maxima trebuie sa fie intre 3.40V și 3.85V!' });
+            setStatusMessage({ type: 'error', text: 'Tensiunea maxima trebuie sa fie intre 3.40V si 3.85V!' });
             return;
         }
         
-        // Validare logică între limite
+        // Validarea logica a intervalelor de tensiune interdependente
         if (formData.minVoltageThreshold < 2.00 || formData.minVoltageThreshold >= formData.maxVoltageThreshold) {
-            setStatusMessage({ type: 'error', text: 'Tensiunea minima este invalida sau este mai mare/egala cu tensiunea maxima!' });
+            setStatusMessage({ type: 'error', text: 'Tensiunea minima este invalida sau depaseste tensiunea maxima!' });
             return;
         }
 
-        // Pre-avertizarea trebuie să aibă sens: să fie între minim și maxim
+        // Asigurarea corectitudinii pragului de pre-avertizare in interiorul intervalului operational
         if (formData.warningVoltageThreshold <= formData.minVoltageThreshold || formData.warningVoltageThreshold >= formData.maxVoltageThreshold) {
-            setStatusMessage({ type: 'error', text: 'Tensiunea de pre-avertizare trebuie sa fie plasata între cea minima și cea maxima!' });
+            setStatusMessage({ type: 'error', text: 'Tensiunea de pre-avertizare trebuie plasata intre limita minima si cea maxima!' });
             return;
         }
 
         if (formData.maxCurrentThreshold <= 0 || formData.maxCurrentThreshold > 500) {
-            setStatusMessage({ type: 'error', text: 'Curentul maxim trebuie sa fie intre 1A și 500A!' });
+            setStatusMessage({ type: 'error', text: 'Curentul maxim trebuie setat intre 1A si 500A!' });
             return;
         }
 
         if (formData.maxDeltaVThreshold < 0.05 || formData.maxDeltaVThreshold > 1.00) {
-            setStatusMessage({ type: 'error', text: 'Dezechilibrul maxim admis (Delta V) trebuie sa fie intre 0.05V și 1.00V!' });
+            setStatusMessage({ type: 'error', text: 'Dezechilibrul maxim admis (Delta V) trebuie sa fie intre 0.05V si 1.00V!' });
             return;
         }
-        // --- END BLOC DE VALIDARE FRONTEND ---
 
         setStatusMessage({ type: 'loading', text: 'Se salveaza parametrii...' });
 
-        // Funcție sigură care convertește orice format de text (cu virgulă sau punct) într-un număr valid
+        // Functie utilitara pentru conversia sigura a string-urilor in valori numerice Float
         const safeNumber = (val) => Number(val.toString().replace(',', '.')) || 0;
 
-        // Pregătim datele pentru trimitere
+        // Construirea payload-ului pentru request-ul de actualizare
         const payload = {
             deviceId: selectedDeviceId,
             alertEmail: formData.alertEmail, 
@@ -162,7 +173,8 @@ export default function BatterySettings() {
         };
 
         try {
-            const response = await fetch('https://localhost:7186/api/settings', {
+            const API_URL = import.meta.env.VITE_API_URL;
+            const response = await fetch(`${API_URL}/api/settings`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -177,12 +189,13 @@ export default function BatterySettings() {
                 return;
             }
             if (response.ok) {
-                setStatusMessage({ type: 'success', text: 'Parametrii au fost salvați cu succes!' });
+                setStatusMessage({ type: 'success', text: 'Parametrii au fost salvati cu succes!' });
                 setTimeout(() => setStatusMessage({ type: '', text: '' }), 4000);
             } else {
                 const errData = await response.json();
                 let errorMessage = 'A aparut o eroare la salvare!';
 
+                // Parsarea dinamica a mesajelor de eroare trimise de backend (Model Validation Errors)
                 if (errData.errors) {
                     const firstErrorKey = Object.keys(errData.errors)[0];
                     errorMessage = errData.errors[firstErrorKey][0];
@@ -193,14 +206,14 @@ export default function BatterySettings() {
                 setStatusMessage({ type: 'error', text: errorMessage });
             }
         } catch (error) {
-            console.error("Eroare de rețea la salvarea setărilor:", error);
-            setStatusMessage({ type: 'error', text: 'Eroare de comunicare cu serverul. Verifică dacă aplicația backend rulează.' });
+            console.error("Eroare de retea la salvarea setarilor:", error);
+            setStatusMessage({ type: 'error', text: 'Eroare de comunicare cu serverul. Verifica daca aplicatia backend ruleaza.' });
         }
     };
 
     return (
         <div className="min-h-screen bg-slate-900 p-8 font-sans">
-            {/* Header / Navigare */}
+            {/* Navigarea Header-ului */}
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h1 className="text-3xl font-bold text-emerald-400 mb-2">Parametrii de siguranta</h1>
@@ -210,13 +223,13 @@ export default function BatterySettings() {
                     onClick={() => navigate('/dashboard')}
                     className="text-slate-400 hover:text-white transition-colors px-4 py-2 border border-slate-700 hover:border-slate-500 rounded-lg"
                 >
-                    &larr; Inapoi la Dashboard
+                    &larr; Inapoi la pagina principala
                 </button>
             </div>
 
             <div className="max-w-4xl bg-slate-800 p-6 rounded-lg border border-slate-700 shadow-2xl">
 
-                {/* Selector Baterie */}
+                {/* Modulul de Selectie Hardware */}
                 <div className="mb-8 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
                     <label className="block text-emerald-400 mb-2 text-sm font-bold uppercase tracking-wider">Selecteaza sistemul</label>
                     <select
@@ -249,7 +262,7 @@ export default function BatterySettings() {
                             />
                         </div>
 
-                        {/* Grid pentru parametrii numerici - Toti au acum type="text" si inputMode="decimal" */}
+                        {/* Grid-ul de configurare a parametrilor de telemetrie */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 
                             <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
@@ -288,7 +301,7 @@ export default function BatterySettings() {
                             </div>
                         </div>
 
-                        {/* Mesaje status salvare */}
+                        {/* Randeaza dinamic notificarile de eroare sau succes */}
                         {statusMessage.text && (
                             <div className={`mb-6 p-4 rounded-lg font-semibold ${statusMessage.type === 'success' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' :
                                     statusMessage.type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/50' :

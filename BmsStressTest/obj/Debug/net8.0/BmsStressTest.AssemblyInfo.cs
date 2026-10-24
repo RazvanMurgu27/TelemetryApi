@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BmsStressTest")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+72a0845c175e912246b8d4cb68e5f582d1a39928")]
 [assembly: System.Reflection.AssemblyProductAttribute("BmsStressTest")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BmsStressTest")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

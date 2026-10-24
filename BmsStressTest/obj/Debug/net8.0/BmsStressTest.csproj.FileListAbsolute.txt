@@ -17,3 +17,4 @@
 /Users/murgurazvan-andrei/Desktop/TelemetryEngine/BmsStressTest/obj/Debug/net8.0/BmsStressTest.pdb
 /Users/murgurazvan-andrei/Desktop/TelemetryEngine/BmsStressTest/obj/Debug/net8.0/BmsStressTest.genruntimeconfig.cache
 /Users/murgurazvan-andrei/Desktop/TelemetryEngine/BmsStressTest/obj/Debug/net8.0/ref/BmsStressTest.dll
+/Users/murgurazvan-andrei/Desktop/TelemetryEngine/BmsStressTest/obj/Debug/net8.0/BmsStressTest.sourcelink.json

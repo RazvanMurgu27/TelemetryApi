@@ -1,0 +1,22 @@
+# Baza de date SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Backend C# (.NET)
+bin/
+obj/
+.vs/
+*.user
+
+ 
+# Frontend React (Node.js)
+node_modules/
+dist/
+npm-debug.log*
+
+# Fisiere de sistem OS (macOS)
+.DS_Store
+
+#Mediu Frontend
+.env

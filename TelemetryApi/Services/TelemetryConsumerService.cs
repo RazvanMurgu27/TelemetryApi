@@ -1,26 +1,21 @@
-using System;
-using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using System.Timers;
+using Microsoft.EntityFrameworkCore;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.Timers;
-using System.Reflection.PortableExecutable;
-using Org.BouncyCastle.Tls;
-using Microsoft.EntityFrameworkCore;
 using TelemetryApi.Models;
 using TelemetryApi.Data;
-using TelemetryApi.Controllers;
 
 namespace TelemetryApi.Services;
 
+/// <summary>
+/// Serviciu de fundal (Background Worker) care actioneaza ca un "Consumer" pentru RabbitMQ.
+/// Proceseaza asincron pachetele de telemetrie, evalueaza regulile de siguranta (BMS Logic) 
+/// si gestioneaza alertele si persistenta datelor (SQLite) in afara thread-ului principal HTTP.
+/// </summary>
 public class TelemetryConsumerService : BackgroundService
 {
-    private readonly string _hostname = "localhost";
     private readonly string _queueName = "telemetry_queue";
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly EmailService _emailService;
@@ -28,6 +23,7 @@ public class TelemetryConsumerService : BackgroundService
     private IConnection _connection = null!;
     private IChannel _channel = null!;
 
+    // Dictionar in-memory (Thread-Safe) pentru monitorizarea statusului Heartbeat al bateriilor (Watchdog)
     private readonly Dictionary<string, (DateTime LastSeen, int LastSoc)> _lastSeenBatteries = new();
     private readonly System.Timers.Timer _connectionTimer;
 
@@ -36,19 +32,31 @@ public class TelemetryConsumerService : BackgroundService
         _scopeFactory = scopeFactory;
         _emailService = emailService;
 
-        //config un ceas pentru verificarea starii de conexiune a bateriei
+        // Configureaza un timer de tip Watchdog (60 sec) pentru a detecta pierderea conexiunii cu hardware-ul
         _connectionTimer = new System.Timers.Timer(60000);
         _connectionTimer.Elapsed += CheckOfflineBatteries;
     }
+
+    /// <summary>
+    /// Metoda principala de executie a serviciului de fundal. Ruleaza continuu cat timp aplicatia este pornita.
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var factory = new ConnectionFactory { HostName = "localhost" };
         _connection = await factory.CreateConnectionAsync();
         _channel = await _connection.CreateChannelAsync();
 
-        await _channel.QueueDeclareAsync(queue: "telemetry_queue", durable: false, exclusive: false, autoDelete: false, arguments: null);
+        await _channel.QueueDeclareAsync(
+            queue: _queueName, 
+            durable: false, 
+            exclusive: false, 
+            autoDelete: false, 
+            arguments: null
+        );
 
         var consumer = new AsyncEventingBasicConsumer(_channel);
+        
+        // Eveniment declansat la primirea unui mesaj nou in coada RabbitMQ
         consumer.ReceivedAsync += async (model, ea) =>
         {
             var body = ea.Body.ToArray();
@@ -57,24 +65,27 @@ public class TelemetryConsumerService : BackgroundService
 
             if (telemetry != null)
             {
-                Console.WriteLine($"[CONSUMER] Extras din coada -> Baterie: {telemetry.DeviceId} | {telemetry.Soc} | {telemetry.Voltage}V | {telemetry.Current}A | {telemetry.Temperature}°C");
+                Console.WriteLine($"[CONSUMER] Extras din coada -> Baterie: {telemetry.DeviceId} | {telemetry.Soc}% | {telemetry.Voltage}V | {telemetry.Current}A | {telemetry.Temperature}°C");
+                
+                // Actualizam statusul Heartbeat pentru watchdog
                 _lastSeenBatteries[telemetry.DeviceId] = (DateTime.UtcNow, telemetry.Soc);
 
+                // Crearea unui Scope izolat pentru accesul concurent si sigur la DbContext
                 using var scope = _scopeFactory.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
                 var bmsModule = await dbContext.BmsModules
                     .Include(b => b.User)
-                    .FirstOrDefaultAsync(b => b.DeviceId == telemetry.DeviceId);
+                    .FirstOrDefaultAsync(b => b.DeviceId == telemetry.DeviceId, stoppingToken);
 
-                //Daca bateria nu are CellCount setat sau nu se afla in baza de date, seteaza automat 4 celule
+                // Mecanism de Fallback pentru bateriile noi (Default 4S LiFePO4)
                 int cellCount = bmsModule?.CellCount ?? 4;
 
-                //Cautam setrile personalizate din UserSettings pentru proprietarul bateriei
+                // Cautam setarile personalizate din UserSettings pentru proprietarul bateriei
                 var userSettings = await dbContext.BatterySettings
-                    .FirstOrDefaultAsync(s => s.DeviceId == telemetry.DeviceId);
+                    .FirstOrDefaultAsync(s => s.DeviceId == telemetry.DeviceId, stoppingToken);
 
-                //Extragem pragurile (folosim valorile implicite daca userul nu si-a setat parametrii)
+                // Extragem pragurile (folosim valorile implicite daca userul nu si-a setat parametrii)
                 double cellMaxVoltage = userSettings?.MaxVoltageThreshold ?? 3.65;
                 double cellMinVoltage = userSettings?.MinVoltageThreshold ?? 2.50;
                 double cellWarningVoltage = userSettings?.WarningVoltageThreshold ?? 2.80;
@@ -83,17 +94,20 @@ public class TelemetryConsumerService : BackgroundService
                 double maxCurrent = userSettings?.MaxCurrentThreshold ?? 220.0;
                 double maxDeltaV = userSettings?.MaxDeltaVThreshold ?? 0.20;
 
-                //Evaluam regulile de siguranta folosind pragurile dinamice
+                // Evaluam regulile de siguranta
                 var (dbError, emailAlert) = EvaluateSafetyRules(telemetry, cellCount, cellMaxVoltage, cellMinVoltage, cellWarningVoltage, maxTemperature, minTemperature, maxCurrent, maxDeltaV);
+                
                 await SaveToDatabaseAsync(dbContext, telemetry, dbError);
 
                 if (emailAlert != null)
                 {
                     if (bmsModule != null && bmsModule.User != null)
                     {
-                        string ownerEmail = !string.IsNullOrWhiteSpace(userSettings?.AlertEmail) ? userSettings.AlertEmail : bmsModule.User.Email;
+                        string ownerEmail = !string.IsNullOrWhiteSpace(userSettings?.AlertEmail) 
+                            ? userSettings.AlertEmail 
+                            : bmsModule.User.Email;
 
-                        //Trimite alerta doar proprietarului
+                        // Trimite alerta catre proprietar
                         await _emailService.SendAlertEmailAsync(ownerEmail, telemetry.DeviceId, emailAlert, telemetry.Soc);
 
                         Console.WriteLine($"[Email Trimis] Alerta trimisa catre: {ownerEmail}");
@@ -106,11 +120,15 @@ public class TelemetryConsumerService : BackgroundService
             }
         };
 
-        await _channel.BasicConsumeAsync(queue: "telemetry_queue", autoAck: true, consumer: consumer);
-
+        // autoAck: true - mesajul este sters din coada imediat ce a fost preluat
+        await _channel.BasicConsumeAsync(queue: _queueName, autoAck: true, consumer: consumer);
+        
         _connectionTimer.Start();
     }
 
+    /// <summary>
+    /// Metoda de tip Watchdog (Dead Man's Switch). Verifica periodic daca o baterie a incetat brusc transmisia.
+    /// </summary>
     private async void CheckOfflineBatteries(object? sender, ElapsedEventArgs e)
     {
         var now = DateTime.UtcNow;
@@ -124,11 +142,11 @@ public class TelemetryConsumerService : BackgroundService
             if ((now - lastseentime).TotalMinutes > 5)
             {
                 Console.ForegroundColor = ConsoleColor.DarkRed;
-                Console.WriteLine($"  [ALERTĂ CRITICA TIMEOUT] Bateria {battery.Key} este OFFLINE! Niciun semnal de peste 5 minute.Ultimul SOC: {lastSoc}");
+                Console.WriteLine($"  [ALERTĂ CRITICA TIMEOUT] Bateria {deviceId} este OFFLINE! Niciun semnal de peste 5 minute. Ultimul SOC: {lastSoc}%");
                 Console.ResetColor();
 
-                //Marcam bateria pentru stergere ca sa prevenim spam-ul pe consola
-                batteriesToRemove.Add(battery.Key);
+                batteriesToRemove.Add(deviceId);
+                
                 try
                 {
                     using var scope = _scopeFactory.CreateScope();
@@ -149,9 +167,7 @@ public class TelemetryConsumerService : BackgroundService
 
                         string messageOffline = "Dispozitivul este OFFLINE! Niciun semnal de peste 5 minute!";
 
-                        // Aici trimitem variabila 'lastSoc' în loc de 0 fix!
                         await _emailService.SendAlertEmailAsync(ownerEmail, deviceId, messageOffline, lastSoc);
-
                         Console.WriteLine($"[Email Trimis] Alerta OFFLINE cu SOC {lastSoc}% a fost trimisa catre: {ownerEmail}");
                     }
                 }
@@ -162,17 +178,18 @@ public class TelemetryConsumerService : BackgroundService
             }
         }
 
-        //Sterge efectiv bateriile offline din memoria RAM
+        // Sterge bateriile offline din memoria RAM pentru a preveni flood-ul de mesaje
         foreach (var key in batteriesToRemove)
         {
             _lastSeenBatteries.Remove(key);
         }
     }
 
+    /// <summary>
+    /// Persista inregistrarea de telemetrie impreuna cu statusul calculat in baza de date SQLite.
+    /// </summary>
     private async Task SaveToDatabaseAsync(AppDbContext dbContext, TelemetryData telemetry, string? errorMessage)
     {
-        using var scope = _scopeFactory.CreateScope();
-
         var record = new TelemetryRecord
         {
             DeviceId = telemetry.DeviceId,
@@ -192,7 +209,7 @@ public class TelemetryConsumerService : BackgroundService
         await dbContext.SaveChangesAsync();
 
         var status = errorMessage != null ? $"[EROARE: {errorMessage}]" : "[OK]";
-        Console.WriteLine($"[DATABASE] Salvat in SQLite (Id: {record.Id}) -> Statsus: {status} | Putere: {record.Power}W");
+        Console.WriteLine($"[DATABASE] Salvat in SQLite (Id: {record.Id}) -> Status: {status} | Putere: {record.Power}W");
     }
 
     private (string? DbError, string? EmailAlert) EvaluateSafetyRules(TelemetryData telemetry, int cellCount, double cellMaxVoltage, double cellMinVoltage, double cellWarningVoltage, double maxTemperature, double minTemperature, double maxCurrent, double maxDeltaV)
@@ -296,6 +313,7 @@ public class TelemetryConsumerService : BackgroundService
             dbErrors.Add(msg);
             emailAlerts.Add(msg);
         }
+        
         if (telemetry.Soc >= 100)
         {
             Console.ForegroundColor = ConsoleColor.Green;
@@ -313,12 +331,15 @@ public class TelemetryConsumerService : BackgroundService
         }
 
         string? finalDbError = dbErrors.Count > 0 ? string.Join(" | ", dbErrors) : null;
-
         string? finalEmailAlert = emailAlerts.Count > 0 ? string.Join(" | ", emailAlerts) : null;
 
         return (finalDbError, finalEmailAlert);
     }
 
+    /// <summary>
+    /// Se executa la inchiderea aplicatiei (Graceful Shutdown).
+    /// Elibereaza conexiunile de retea catre RabbitMQ si resursele neadministrate.
+    /// </summary>
     public override void Dispose()
     {
         _connectionTimer.Stop();

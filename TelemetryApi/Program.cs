@@ -1,29 +1,33 @@
-using Microsoft.EntityFrameworkCore;
-using TelemetryApi;
+using System;
+using System.Text;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using TelemetryApi.Controllers;
-using TelemetryApi.Models;
 using TelemetryApi.Data;
 using TelemetryApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configurarea serviciilor pentru expunerea endpoint-urilor REST
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer(); 
 
+// Initializarea Swagger UI cu suport integrat pentru testarea rutelor securizate (JWT Bearer Token)
 builder.Services.AddSwaggerGen(c =>
 {
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description="Introduceti token-ul JWT in formatul: Bearer {token_aici}",
-        Name="Authorization",
+        Description = "Introduceti token-ul JWT in formatul: Bearer {token_aici}",
+        Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-    c.AddSecurityRequirement (new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
@@ -34,21 +38,23 @@ builder.Services.AddSwaggerGen(c =>
                     Id = "Bearer"
                 }
             },
-            new string[] {}
+            Array.Empty<string>()
         }
     });
 });
 
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=telemetry.db"));
+// Inregistrarea contextului Entity Framework Core folosind o baza de date SQLite locala
+builder.Services.AddDbContext<AppDbContext>(options => 
+    options.UseSqlite("Data Source=telemetry.db"));
 
+// Inregistrarea serviciilor Singleton pentru comunicarea asincrona cu RabbitMQ si trimiterea de email-uri
 builder.Services.AddSingleton<RabbitMqService>(); 
-
 builder.Services.AddSingleton<EmailService>();
 
+// Inregistrarea Consumer-ului ca Background Service pentru procesarea datelor in afara thread-ului principal HTTP
 builder.Services.AddHostedService<TelemetryConsumerService>();
 
-builder.Services.AddControllers();
-
+// Definirea politicilor de securitate si validare a token-ului JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -64,33 +70,55 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+// Configurarea mecanismului CORS pentru a permite cererile de tip cross-origin (ex: din frontend-ul React)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         policy =>
         {
             policy.AllowAnyOrigin()
-                .AllowAnyHeader()
-                .AllowAnyMethod();
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
         });
 });
 
 var app = builder.Build();
 
+// Crearea unui Scope izolat la pornirea aplicatiei pentru initializarea si popularea bazei de date (Data Seeding)
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.EnsureCreated();
+    var services = scope.ServiceProvider;
+    try
+    {
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        
+        // Asigurarea existentei fizice a fisierului .db inainte de inserarea datelor
+        dbContext.Database.EnsureCreated();
+        DataSeeder.Initialize(services);
+    }
+    catch (Exception ex)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"[CRITICAL] Eroare la initializarea bazei de date: {ex.Message}");
+        Console.ResetColor();
+    }
 }
 
-if(app.Environment.IsDevelopment())
+// Expunerea panoului Swagger exclusiv in mediul de dezvoltare
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// Aplicarea politicilor CORS la nivel global pe intreaga aplicatie
 app.UseCors("AllowAll");
+
+// Middleware-urile de securitate trebuie executate strict in aceasta ordine: validarea identitatii, apoi verificarea drepturilor
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Rutarea cererilor HTTP catre controllerele specifice
 app.MapControllers();
+
 app.Run();
