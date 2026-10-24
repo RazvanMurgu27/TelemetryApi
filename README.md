@@ -1,8 +1,9 @@
 # IoT Smart Battery Management System (BMS) & Telemetry Platform
 
-An end-to-end telemetry platform for LiFePO4 battery packs. The project connects IoT battery data ingestion with asynchronous processing, persistent storage, secure APIs, and a React dashboard for monitoring and diagnostics.
+An end-to-end telemetry platform for LiFePO4 battery packs. The project connects IoT battery data ingestion with asynchronous processing, persistent storage, secure APIs, and a React dashboard for monitoring and configuration.
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Main Features](#main-features)
 - [Architecture](#architecture)
@@ -10,31 +11,36 @@ An end-to-end telemetry platform for LiFePO4 battery packs. The project connects
 - [Repository Structure](#repository-structure)
 - [Prerequisites](#prerequisites)
 - [Local Setup and Run Guide](#local-setup-and-run-guide)
-- [Secure Configuration (Secrets)](#secure-configuration-secrets)
+- [Secure Configuration](#secure-configuration)
 - [Data Seeding](#data-seeding)
 - [BMS Stress Test Simulator](#bms-stress-test-simulator)
 - [API Endpoints](#api-endpoints)
-- [Screenshots (Placeholders)](#screenshots-placeholders)
+- [Swagger / OpenAPI](#swagger--openapi)
+- [Screenshots](#screenshots)
 - [Current Limitations](#current-limitations)
 - [Future Improvements](#future-improvements)
 - [License](#license)
 
 ## Overview
-This solution bridges ESP32 + BMS hardware telemetry and a modern web dashboard.
 
-Telemetry messages are ingested by an ASP.NET Core API, pushed into RabbitMQ (`telemetry_queue`), processed by `TelemetryConsumerService`, persisted to SQLite, and then exposed back to the frontend through secured API endpoints.
+This solution bridges ESP32/BMS hardware telemetry and a modern web dashboard.
+
+Telemetry messages are ingested by an ASP.NET Core API, published to RabbitMQ through the `telemetry_queue` queue, processed by `TelemetryConsumerService`, persisted to SQLite, and exposed to the React frontend through API endpoints.
 
 ## Main Features
-- Real-time style telemetry ingestion through HTTP + RabbitMQ buffering.
+
+- Telemetry ingestion through HTTP and RabbitMQ buffering.
 - Asynchronous backend processing using a dedicated consumer service.
 - SQLite persistence for BMS modules, user settings, and telemetry history.
 - JWT authentication for protected API routes.
 - Password hashing with BCrypt.Net-Next.
-- Email alert capability via MailKit.
-- Interactive React dashboard with routing and Recharts-based telemetry charts.
-- Built-in stress-test console app for simulated BMS traffic.
+- Email alert capability through MailKit.
+- React dashboard with routing and Recharts-based telemetry charts.
+- Configurable battery thresholds and anomaly detection.
+- Built-in console application for simulated BMS traffic and stress testing.
 
 ## Architecture
+
 ```mermaid
 graph LR
     A[ESP32 / BMS Modules] --> B[ASP.NET Core Ingestion API\nPOST /api/Telemetry]
@@ -45,19 +51,40 @@ graph LR
     F --> G[React + Vite Dashboard]
 ```
 
+The main data flow is:
+
+```text
+ESP32 / BMS
+    ↓
+ASP.NET Core ingestion API
+    ↓
+RabbitMQ: telemetry_queue
+    ↓
+TelemetryConsumerService
+    ↓
+SQLite
+    ↓
+ASP.NET Core APIs
+    ↓
+React / Vite dashboard
+```
+
 ## Technology Stack
+
 ### Backend
+
 - .NET 8
 - ASP.NET Core Web API
 - Entity Framework Core
 - SQLite
 - RabbitMQ.Client
-- JWT Authentication
+- JSON Web Tokens (JWT)
 - BCrypt.Net-Next
 - MailKit
 - Swagger / OpenAPI
 
 ### Frontend
+
 - React
 - Vite
 - React Router
@@ -65,85 +92,114 @@ graph LR
 - Tailwind CSS
 
 ### Simulation
-- `BmsStressTest` (.NET 8 console app) for telemetry load simulation.
+
+- `BmsStressTest` — .NET 8 console application for telemetry simulation and stress testing.
 
 ## Repository Structure
+
 ```text
 TelemetryApi/
-├── TelemetryApi/         # ASP.NET Core API + background telemetry consumer
+├── TelemetryApi/         # ASP.NET Core API and background telemetry consumer
 ├── frontend/             # React + Vite dashboard
-├── BmsStressTest/        # Console telemetry simulator/stress test
-└── docker-compose.yml    # Local infrastructure (RabbitMQ + PostgreSQL service definitions)
+├── BmsStressTest/        # Console telemetry simulator and stress test
+└── docker-compose.yml    # Local infrastructure configuration
 ```
 
 ## Prerequisites
+
 - Git
 - .NET 8 SDK
-- Node.js + npm
-- Docker (for RabbitMQ via container)
+- Node.js and npm
+- Docker Desktop with Docker Compose
 
 ## Local Setup and Run Guide
-### 1) Clone the repository
+
+### 1. Clone the repository
+
 ```bash
 git clone https://github.com/RazvanMurgu27/TelemetryApi.git
 cd TelemetryApi
 ```
 
-### 2) Start RabbitMQ (recommended: Docker Compose)
-From the repository root:
+### 2. Start RabbitMQ
+
+From the repository root, start RabbitMQ using Docker Compose:
 
 ```bash
 docker compose up -d rabbitmq
 ```
 
-Open RabbitMQ Management UI at `http://localhost:15672` (default credentials in compose file are `guest` / `guest`).
+RabbitMQ Management UI is available at:
 
-Optional standalone Docker command:
-```bash
-docker run -d --name telemetry_rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+```text
+http://localhost:15672
 ```
 
-### 3) Run the backend (`TelemetryApi/`)
+Use the credentials configured in `docker-compose.yml`. Do not commit production credentials to the repository.
+
+As an alternative, RabbitMQ can be started with Docker directly:
+
+```bash
+docker run -d \
+  --name telemetry_rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:3-management
+```
+
+### 3. Run the backend
+
+Open a terminal at the repository root and run:
+
 ```bash
 cd TelemetryApi
 dotnet restore
 dotnet run
 ```
 
-Swagger/OpenAPI is available in Development mode at:
-- `https://localhost:<BACKEND_PORT>/swagger`
+The backend URL and HTTPS port are displayed in the terminal at startup. They can also be checked in:
 
-Check the actual HTTPS port in terminal output or in `TelemetryApi/Properties/launchSettings.json`.
+```text
+TelemetryApi/Properties/launchSettings.json
+```
 
-### 4) Run the frontend (`frontend/`)
-In a new terminal from the repository root:
+### 4. Run the frontend
+
+Open a second terminal at the repository root:
 
 ```bash
 cd frontend
 npm install
 ```
 
-Create `frontend/.env`:
+Create `frontend/.env` and set the backend URL:
+
 ```env
 VITE_API_URL=https://localhost:<BACKEND_PORT>
 ```
 
+Replace `<BACKEND_PORT>` with the actual HTTPS port reported by the backend.
+
 Start the frontend:
+
 ```bash
 npm run dev
 ```
 
-Open the URL shown by Vite in your terminal (commonly `http://localhost:5173`).
+Open the URL displayed by Vite in the terminal, commonly `http://localhost:5173`.
 
-## Secure Configuration (Secrets)
-Do **not** commit real secrets.
+## Secure Configuration
 
-Set sensitive values via .NET User Secrets (recommended for local development) or environment variables:
+Do not commit JWT keys, SMTP passwords, application passwords, or other sensitive values to the repository.
+
+The backend reads sensitive configuration values such as:
+
 - `Jwt:Key`
 - `EmailSettings:Email`
 - `EmailSettings:Password`
 
-Example (`TelemetryApi/` folder):
+For local development, use .NET User Secrets from the `TelemetryApi/` directory:
+
 ```bash
 dotnet user-secrets init
 dotnet user-secrets set "Jwt:Key" "replace-with-a-long-random-key"
@@ -151,43 +207,61 @@ dotnet user-secrets set "EmailSettings:Email" "your-email@example.com"
 dotnet user-secrets set "EmailSettings:Password" "your-app-password"
 ```
 
-## Data Seeding
-At startup, the backend:
-1. Ensures the SQLite database is created.
-2. Seeds demo data **only when the database is empty**.
-3. Adds a demo BMS module (`SIM-001`), time-series telemetry history, and anomaly scenarios (for alert visualization/testing).
+Environment variables can also be used with the corresponding double-underscore notation:
 
-To inspect or change demo values, edit:
-- `TelemetryApi/Data/DataSeeder.cs`
+```text
+Jwt__Key
+EmailSettings__Email
+EmailSettings__Password
+```
+
+## Data Seeding
+
+At startup, the backend:
+
+1. Ensures that the SQLite database exists.
+2. Seeds demo data only when the database is empty.
+3. Adds a demo BMS module with `DeviceId = SIM-001`.
+4. Generates time-series telemetry history.
+5. Includes anomaly scenarios for alert visualization and testing.
+
+To inspect or change the demo data, edit:
+
+```text
+TelemetryApi/Data/DataSeeder.cs
+```
 
 For security, this README intentionally does not expose demo credentials.
 
 ## BMS Stress Test Simulator
-Run from the repository root:
+
+Run the simulator from the repository root:
+
 ```bash
 dotnet run --project BmsStressTest
 ```
 
 The simulator supports:
-- Optional custom `DeviceId` (or random `SIM-001` ... `SIM-050`).
-- Battery topology selection:
-  - 12V (4S)
-  - 24V (8S)
-  - 48V (16S)
-- Configurable publish interval (milliseconds).
-- RabbitMQ publication to `telemetry_queue`.
+
+- An optional custom `DeviceId` or randomly generated IDs from `SIM-001` to `SIM-050`.
+- 12V, 24V, and 48V battery systems, represented as 4S, 8S, and 16S configurations.
+- A configurable message publishing interval in milliseconds.
+- Publishing telemetry messages to the RabbitMQ `telemetry_queue` queue.
 
 Stop the simulator with `CTRL+C`.
 
 ## API Endpoints
-Routes below match the existing controllers.
+
+The following routes match the existing controllers in `TelemetryApi/Controllers`.
 
 ### Public endpoints
+
 - `POST /api/Auth/register`
 - `POST /api/Auth/login`
 - `POST /api/Telemetry`
 
 ### JWT-protected endpoints
+
 - `GET /api/Telemetry/battery/{deviceId}`
 - `POST /api/Bms`
 - `GET /api/Bms/user/{userId}`
@@ -195,27 +269,48 @@ Routes below match the existing controllers.
 - `GET /api/Settings/battery/{deviceId}`
 - `PUT /api/Settings`
 
-Send a valid JWT in the `Authorization` header for protected routes.
+Protected endpoints require a valid JWT in the `Authorization` header.
 
-## Screenshots (Placeholders)
-Add screenshots in this section after capture. Recommended set:
+## Swagger / OpenAPI
 
-1. **Dashboard Overview** — battery list and live status cards.
-2. **Battery Details & Charts** — per-battery telemetry view with voltage/current/temperature/SOC charts.
-3. **Settings** — battery thresholds and alert configuration form.
-4. **Swagger / OpenAPI** — available endpoints and authenticated request example.
-5. **RabbitMQ Management** — `telemetry_queue` status in the management UI.
+All API endpoints can be viewed and tested through the Swagger / OpenAPI interface while the backend is running in Development mode.
+
+Open the following URL, replacing `<BACKEND_PORT>` with the HTTPS port shown in the terminal:
+
+```text
+https://localhost:<BACKEND_PORT>/swagger
+```
+
+Swagger provides an interactive overview of the available authentication, BMS, settings, and telemetry routes. It can also be used to authorize requests with a JWT and test protected endpoints directly from the browser.
+
+## Screenshots
+
+Screenshots can be added after the application is running locally. Recommended screenshots include:
+
+1. **Dashboard Overview** — battery list, status indicators, and summary cards.
+2. **Battery Details and Charts** — voltage, current, temperature, SOC, and telemetry history.
+3. **Settings** — battery thresholds and alert configuration.
+4. **Login Page** — authentication interface without visible credentials.
+5. **Swagger / OpenAPI** — the complete API endpoint list and an authenticated request example.
+6. **RabbitMQ Management** — the `telemetry_queue` status and message activity.
+7. **BMS Stress Test Terminal** — optional screenshot showing the simulator running.
+
+Do not include passwords, JWT tokens, SMTP credentials, private email addresses, or other sensitive information in screenshots.
 
 ## Current Limitations
-- Current infrastructure is optimized for local/dev usage (SQLite + local RabbitMQ host assumptions).
-- Queue processing reliability features (retries, dead-letter queues, advanced durability) are limited in the current implementation.
-- Configuration and deployment hardening for production environments is not yet fully documented.
+
+- The current infrastructure is optimized for local development and demonstration using SQLite and a local RabbitMQ instance.
+- Queue reliability features such as retries, dead-letter queues, and advanced durability are limited in the current implementation.
+- Production deployment and environment-specific configuration are not fully documented yet.
 
 ## Future Improvements
-- Add production-ready RabbitMQ topology (durable queues, DLQ, retry strategy).
+
+- Add a production-ready RabbitMQ topology with durable queues, dead-letter queues, and retry policies.
 - Add automated tests for critical API and consumer flows.
-- Expand observability (structured logs, metrics, health checks, tracing).
-- Add deployment profiles (containers/cloud) with environment-specific configuration guides.
+- Expand observability with structured logging, metrics, health checks, and distributed tracing.
+- Add containerized and cloud deployment profiles.
+- Add a production database and migration/backup strategy.
 
 ## License
-No `LICENSE` file is currently defined in this repository.
+
+No `LICENSE` file is currently defined in this repository. Add an explicit license if the project is intended to be reused or distributed publicly.
