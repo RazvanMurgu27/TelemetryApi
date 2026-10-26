@@ -285,15 +285,29 @@ Swagger provides an interactive overview of the available authentication, BMS, s
 
 ## Screenshots
 
-Screenshots can be added after the application is running locally. Recommended screenshots include:
+### Dashboard Overview
 
-1. **Dashboard Overview** — battery list, status indicators, and summary cards.
-2. **Battery Details and Charts** — voltage, current, temperature, SOC, and telemetry history.
-3. **Settings** — battery thresholds and alert configuration.
-4. **Login Page** — authentication interface without visible credentials.
-5. **Swagger / OpenAPI** — the complete API endpoint list and an authenticated request example.
-6. **RabbitMQ Management** — the `telemetry_queue` status and message activity.
-7. **BMS Stress Test Terminal** — optional screenshot showing the simulator running.
+![image4](image4)
+
+Overview of the dashboard with battery status indicators and operational summary metrics.
+
+### Battery Details and Charts
+
+![image3](image3)
+
+Detailed battery telemetry view with historical charts and key electrical measurements.
+
+### Telemetry History and Alerts
+
+![image2](image2)
+
+Telemetry history table highlighting recorded measurements and active anomaly alerts.
+
+### Battery Safety Settings
+
+![image1](image1)
+
+Safety parameter configuration page for battery thresholds and protection settings.
 
 Do not include passwords, JWT tokens, SMTP credentials, private email addresses, or other sensitive information in screenshots.
 
