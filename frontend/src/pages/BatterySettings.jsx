@@ -212,110 +212,115 @@ export default function BatterySettings() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 p-8 font-sans">
-            {/* Navigarea Header-ului */}
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-emerald-400 mb-2">Parametrii de siguranta</h1>
-                    <p className="text-slate-400">Configureaza limitele personalizate pentru fiecare baterie.</p>
-                </div>
-                <button
-                    onClick={() => navigate('/dashboard')}
-                    className="text-slate-400 hover:text-white transition-colors px-4 py-2 border border-slate-700 hover:border-slate-500 rounded-lg"
-                >
-                    &larr; Inapoi la pagina principala
-                </button>
-            </div>
-
-            <div className="max-w-4xl bg-slate-800 p-6 rounded-lg border border-slate-700 shadow-2xl">
-
-                {/* Modulul de Selectie Hardware */}
-                <div className="mb-8 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
-                    <label className="block text-emerald-400 mb-2 text-sm font-bold uppercase tracking-wider">Selecteaza sistemul</label>
-                    <select
-                        value={selectedDeviceId}
-                        onChange={(e) => setSelectedDeviceId(e.target.value)}
-                        className="w-full md:w-1/2 p-3 rounded-lg bg-slate-900 text-white border border-slate-600 focus:border-emerald-500 focus:outline-none"
+        <div className="min-h-screen bg-slate-900 p-8 font-sans w-full">
+            
+            {/* CONTAINERUL PENTRU CENTRARE - Tine la un loc titlul si formularul */}
+            <div className="max-w-4xl mx-auto w-full">
+                
+                {/* Navigarea Header-ului */}
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 className="text-3xl font-bold text-emerald-400 mb-2">Parametrii de siguranta</h1>
+                        <p className="text-slate-400">Configureaza limitele personalizate pentru fiecare baterie.</p>
+                    </div>
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        className="text-slate-400 hover:text-white transition-colors px-4 py-2 border border-slate-700 hover:border-slate-500 rounded-lg"
                     >
-                        {modules.length === 0 && <option value="">Nu ai baterii inregistrate</option>}
-                        {modules.map((modul) => (
-                            <option key={modul.deviceId} value={modul.deviceId}>
-                                {modul.name} (ID: {modul.deviceId})
-                            </option>
-                        ))}
-                    </select>
+                        &larr; Inapoi la pagina principala
+                    </button>
                 </div>
 
-                {selectedDeviceId && (
-                    <form onSubmit={handleSubmit}>
+                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700 shadow-2xl">
 
-                        <div className="mb-6">
-                            <label className="block text-slate-300 mb-2 text-sm font-medium">Adresa email pentru alerte critice</label>
-                            <input
-                                type="email"
-                                name="alertEmail"
-                                required
-                                value={formData.alertEmail}
-                                onChange={handleChange}
-                                placeholder="ex: alerta@domeniu.ro"
-                                className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-emerald-500 focus:outline-none"
-                            />
-                        </div>
+                    {/* Modulul de Selectie Hardware */}
+                    <div className="mb-8 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
+                        <label className="block text-emerald-400 mb-2 text-sm font-bold uppercase tracking-wider">Selecteaza sistemul</label>
+                        <select
+                            value={selectedDeviceId}
+                            onChange={(e) => setSelectedDeviceId(e.target.value)}
+                            className="w-full md:w-1/2 p-3 rounded-lg bg-slate-900 text-white border border-slate-600 focus:border-emerald-500 focus:outline-none"
+                        >
+                            {modules.length === 0 && <option value="">Nu ai baterii inregistrate</option>}
+                            {modules.map((modul) => (
+                                <option key={modul.deviceId} value={modul.deviceId}>
+                                    {modul.name} (ID: {modul.deviceId})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                        {/* Grid-ul de configurare a parametrilor de telemetrie */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    {selectedDeviceId && (
+                        <form onSubmit={handleSubmit}>
 
-                            <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
-                                <label className="block text-yellow-400 mb-2 text-sm font-medium">Tensiune Maxima Celula (V)</label>
-                                <input type="text" inputMode="decimal" name="maxVoltageThreshold" value={formData.maxVoltageThreshold} onChange={handleChange} placeholder="ex: 3.65 (Min: 3.40 - Max: 3.85)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-yellow-500 focus:outline-none" />
+                            <div className="mb-6">
+                                <label className="block text-slate-300 mb-2 text-sm font-medium">Adresa email pentru alerte critice</label>
+                                <input
+                                    type="email"
+                                    name="alertEmail"
+                                    required
+                                    value={formData.alertEmail}
+                                    onChange={handleChange}
+                                    placeholder="ex: alerta@domeniu.ro"
+                                    className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-emerald-500 focus:outline-none"
+                                />
                             </div>
 
-                            <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
-                                <label className="block text-orange-400 mb-2 text-sm font-medium">Tensiune Minima Celula (V)</label>
-                                <input type="text" inputMode="decimal" name="minVoltageThreshold" value={formData.minVoltageThreshold} onChange={handleChange} placeholder="ex: 2.50 (Min: 2.00 - Max: 3.30)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-orange-500 focus:outline-none" />
+                            {/* Grid-ul de configurare a parametrilor de telemetrie */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+                                <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
+                                    <label className="block text-yellow-400 mb-2 text-sm font-medium">Tensiune Maxima Celula (V)</label>
+                                    <input type="text" inputMode="decimal" name="maxVoltageThreshold" value={formData.maxVoltageThreshold} onChange={handleChange} placeholder="ex: 3.65 (Min: 3.40 - Max: 3.85)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-yellow-500 focus:outline-none" />
+                                </div>
+
+                                <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
+                                    <label className="block text-orange-400 mb-2 text-sm font-medium">Tensiune Minima Celula (V)</label>
+                                    <input type="text" inputMode="decimal" name="minVoltageThreshold" value={formData.minVoltageThreshold} onChange={handleChange} placeholder="ex: 2.50 (Min: 2.00 - Max: 3.30)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-orange-500 focus:outline-none" />
+                                </div>
+
+                                <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
+                                    <label className="block text-blue-400 mb-2 text-sm font-medium">Pre-avertizare Descarcare (V)</label>
+                                    <input type="text" inputMode="decimal" name="warningVoltageThreshold" value={formData.warningVoltageThreshold} onChange={handleChange} placeholder="ex: 2.80 (Min: 2.50 - Max: 3.30)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-blue-500 focus:outline-none" />
+                                </div>
+
+                                <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
+                                    <label className="block text-cyan-400 mb-2 text-sm font-medium">Dezechilibru Maxim Delta V (V)</label>
+                                    <input type="text" inputMode="decimal" name="maxDeltaVThreshold" value={formData.maxDeltaVThreshold} onChange={handleChange} placeholder="ex: 0.20 (Min: 0.05 - Max: 1.00)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-cyan-500 focus:outline-none" />
+                                </div>
+
+                                <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
+                                    <label className="block text-red-400 mb-2 text-sm font-medium">Temperatura Maxima (°C)</label>
+                                    <input type="text" inputMode="decimal" name="maxTemperatureThreshold" value={formData.maxTemperatureThreshold} onChange={handleChange} placeholder="ex: 55 (Min: 30.0 - Max: 75.0)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-red-500 focus:outline-none" />
+                                </div>
+
+                                <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
+                                    <label className="block text-indigo-400 mb-2 text-sm font-medium">Temperatura Minima (°C)</label>
+                                    <input type="text" inputMode="decimal" name="minTemperatureThreshold" value={formData.minTemperatureThreshold} onChange={handleChange} placeholder="ex: 0.0 (Min: -20.0 - Max: 15.0)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-indigo-500 focus:outline-none" />
+                                </div>
+
+                                <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50 md:col-span-2">
+                                    <label className="block text-fuchsia-400 mb-2 text-sm font-medium">Curent Maxim Admis (A)</label>
+                                    <input type="text" inputMode="decimal" name="maxCurrentThreshold" value={formData.maxCurrentThreshold} onChange={handleChange} placeholder="ex: 220.0 (Min: 1.0 - Max: 500.0)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-fuchsia-500 focus:outline-none" />
+                                </div>
                             </div>
 
-                            <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
-                                <label className="block text-blue-400 mb-2 text-sm font-medium">Pre-avertizare Descarcare (V)</label>
-                                <input type="text" inputMode="decimal" name="warningVoltageThreshold" value={formData.warningVoltageThreshold} onChange={handleChange} placeholder="ex: 2.80 (Min: 2.50 - Max: 3.30)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-blue-500 focus:outline-none" />
-                            </div>
+                            {/* Randeaza dinamic notificarile de eroare sau succes */}
+                            {statusMessage.text && (
+                                <div className={`mb-6 p-4 rounded-lg font-semibold ${statusMessage.type === 'success' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' :
+                                        statusMessage.type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/50' :
+                                            'bg-blue-500/20 text-blue-400 border border-blue-500/50'
+                                    }`}>
+                                    {statusMessage.text}
+                                </div>
+                            )}
 
-                            <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
-                                <label className="block text-cyan-400 mb-2 text-sm font-medium">Dezechilibru Maxim Delta V (V)</label>
-                                <input type="text" inputMode="decimal" name="maxDeltaVThreshold" value={formData.maxDeltaVThreshold} onChange={handleChange} placeholder="ex: 0.20 (Min: 0.05 - Max: 1.00)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-cyan-500 focus:outline-none" />
-                            </div>
-
-                            <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
-                                <label className="block text-red-400 mb-2 text-sm font-medium">Temperatura Maxima (°C)</label>
-                                <input type="text" inputMode="decimal" name="maxTemperatureThreshold" value={formData.maxTemperatureThreshold} onChange={handleChange} placeholder="ex: 55 (Min: 30.0 - Max: 75.0)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-red-500 focus:outline-none" />
-                            </div>
-
-                            <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50">
-                                <label className="block text-indigo-400 mb-2 text-sm font-medium">Temperatura Minima (°C)</label>
-                                <input type="text" inputMode="decimal" name="minTemperatureThreshold" value={formData.minTemperatureThreshold} onChange={handleChange} placeholder="ex: 0.0 (Min: -20.0 - Max: 15.0)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-indigo-500 focus:outline-none" />
-                            </div>
-
-                            <div className="bg-slate-900/30 p-4 rounded-lg border border-slate-700/50 md:col-span-2">
-                                <label className="block text-fuchsia-400 mb-2 text-sm font-medium">Curent Maxim Admis (A)</label>
-                                <input type="text" inputMode="decimal" name="maxCurrentThreshold" value={formData.maxCurrentThreshold} onChange={handleChange} placeholder="ex: 220.0 (Min: 1.0 - Max: 500.0)" className="w-full p-3 rounded-lg bg-slate-900 text-white border border-slate-700 focus:border-fuchsia-500 focus:outline-none" />
-                            </div>
-                        </div>
-
-                        {/* Randeaza dinamic notificarile de eroare sau succes */}
-                        {statusMessage.text && (
-                            <div className={`mb-6 p-4 rounded-lg font-semibold ${statusMessage.type === 'success' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' :
-                                    statusMessage.type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/50' :
-                                        'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                                }`}>
-                                {statusMessage.text}
-                            </div>
-                        )}
-
-                        <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-lg transition-colors shadow-lg shadow-emerald-500/20 text-lg">
-                            Salveaza Parametrii pentru {selectedDeviceId}
-                        </button>
-                    </form>
-                )}
+                            <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-lg transition-colors shadow-lg shadow-emerald-500/20 text-lg">
+                                Salveaza Parametrii pentru {selectedDeviceId}
+                            </button>
+                        </form>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -1,154 +1,330 @@
 # IoT Smart Battery Management System (BMS) & Telemetry Platform
 
-Platforma software moderna, orientata pe arhitectura de tip 
-microservicii si IoT (Internet of Things), destinata monitorizarii 
-in timp real, diagnosticarii si stocarii datelor telemetrice 
-provenite de la sisteme de acumulatoare cu celule LiFePO4.
+An end-to-end telemetry platform for LiFePO4 battery packs. The project connects IoT battery data ingestion with asynchronous processing, persistent storage, secure APIs, and a React dashboard for monitoring and configuration.
 
----
+## Table of Contents
 
-## Cuprins
-- [1. Despre Proiect & Arhitectura](#1-despre-proiect--arhitectura)
-- [2. Tehnologii Utilizate](#2-tehnologii-utilizate)
-- [3. Aportul Inovativ si Beneficiile Sistemului](#3-aportul-inovativ-si-beneficiile-sistemului)
-- [4. Structura Proiectului](#4-structura-proiectului)
-- [5. Ghid de Rulare (Pentru Testare Locala)](#5-ghid-de-rulare-pentru-testare-locala)
-- [6. Functionalitati Speciale (Data Seeder & Stress Test)](#6-functionalitati-speciale-data-seeder--stress-test)
+- [Overview](#overview)
+- [Main Features](#main-features)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Local Setup and Run Guide](#local-setup-and-run-guide)
+- [Secure Configuration](#secure-configuration)
+- [Data Seeding](#data-seeding)
+- [BMS Stress Test Simulator](#bms-stress-test-simulator)
+- [API Endpoints](#api-endpoints)
+- [Swagger / OpenAPI](#swagger--openapi)
+- [Screenshots](#screenshots)
+- [Current Limitations](#current-limitations)
+- [Future Improvements](#future-improvements)
+- [License](#license)
 
----
+## Overview
 
-## 1. Despre Proiect & Arhitectura
+This solution bridges ESP32/BMS hardware telemetry and a modern web dashboard.
 
-Aplicatia asigura o punte sigura si eficienta intre hardware-ul 
-fizic (placute microcontroler ESP32 conectate la module BMS prin 
-magistrala RS485/Modbus) si un panou de control (Dashboard) modern 
-dezvoltat in React.
+Telemetry messages are ingested by an ASP.NET Core API, published to RabbitMQ through the `telemetry_queue` queue, processed by `TelemetryConsumerService`, persisted to SQLite, and exposed to the React frontend through API endpoints.
 
-Fluxul datelor functioneaza pe baza unui model asincron si scalabil:
-* **Achizitia de date:** Dispozitivul ESP32 citeste parametrii 
-  celulelor de la BMS si ii transmite catre backend.
-* **Brokerul de Mesagerie:** Se utilizeaza **RabbitMQ** pentru a 
-  prelua pachetele de telemetrie si a decupla primirea lor de 
-  procesarea intensiva din baza de date.
-* **Backend-ul (ASP.NET Core):** Un Worker Service dedicat 
-  (`TelemetryConsumerService`) preia mesajele din coada RabbitMQ, 
-  le valideaza si le stocheaza in baza de date.
-* **Frontend-ul (React + Vite):** Ofera o interfata grafica 
-  interactiva, bazata pe randare client-side, grafice in timp real 
-  (Recharts) si alerte vizuale.
+## Main Features
 
----
+- Telemetry ingestion through HTTP and RabbitMQ buffering.
+- Asynchronous backend processing using a dedicated consumer service.
+- SQLite persistence for BMS modules, user settings, and telemetry history.
+- JWT authentication for protected API routes.
+- Password hashing with BCrypt.Net-Next.
+- Email alert capability through MailKit.
+- React dashboard with routing and Recharts-based telemetry charts.
+- Configurable battery thresholds and anomaly detection.
+- Built-in console application for simulated BMS traffic and stress testing.
 
-## 2. Tehnologii Utilizate
+## Architecture
 
-### **Backend (.NET Ecosystem)**
-* **ASP.NET Core Web API:** Arhitectura RESTful orientata pe servicii.
-* **Entity Framework Core (EF Core):** ORM modern pentru maparea OR.
-* **SQLite:** Baza de date relationala rapida si portabila.
-* **RabbitMQ:** Coada de mesaje asincrona pentru fluxul IoT.
-* **JWT & ASP.NET Identity:** Autentificare bazata pe token-uri 
-  criptografice si Secret Manager.
-* **MailKit / SmtpClient:** Serviciu automatizat de alerte pe email.
+```mermaid
+graph LR
+    A[ESP32 / BMS Modules] --> B[ASP.NET Core Ingestion API\nPOST /api/Telemetry]
+    B --> C[(RabbitMQ\ntelemetry_queue)]
+    C --> D[TelemetryConsumerService]
+    D --> E[(SQLite\ntelemetry.db)]
+    E --> F[ASP.NET Core Query APIs]
+    F --> G[React + Vite Dashboard]
+```
 
-### **Frontend (React Ecosystem)**
-* **React (Vite):** Librarie de interfete utilizator de inalta performanta.
-* **Tailwind CSS:** Framework utilitar pentru un design responsive.
-* **Recharts:** Librarie avansata pentru grafice SVG interactive.
-* **React Router DOM:** Gestionarea rutelor dinamice in aplicatia SPA.
-
----
-
-## 3. Aportul Inovativ si Beneficiile Sistemului
-
-* **Siguranta Proactiva (Dead Man's Switch & Thresholds):** 
-  Platforma nu doar afiseaza date pasiv, ci evalueaza constant 
-  parametrii in raport cu limite configurabile per baterie 
-  (delta V, praguri termice) si declanseaza alerte automate.
-* **Decuplare Arhitecturala (IoT Ready):** Folosirea RabbitMQ 
-  permite backend-ului sa gestioneze mii de cereri simultane de la 
-  hardware fara a bloca firul principal de executie.
-* **Optimizare Client-Side:** Calculele complexe (cum ar fi 
-  diferenta de potential dintre celule - Delta V) sunt procesate 
-  eficient in browser pentru a reduce incarcarea pe server.
-* **Securitate la Standarde Industriale:** Separarea stricta a 
-  secretelor (JWT Keys, credentiale SMTP) prin variabile de mediu 
-  si Secret Manager previne scurgerile de date pe GitHub.
-
----
-
-## 4. Structura Proiectului
+The main data flow is:
 
 ```text
-├── Backend/               # Proiectul ASP.NET Core API & Worker Service
-│   ├── Controllers/       # Endpoints REST (Auth, BMS, Settings, Telemetry)
-│   ├── Services/          # Logica de business si Consumerul RabbitMQ
-│   ├── Data/              # Contextul bazei de date si DataSeeder
-│   └── appsettings.json   # Configuratii generale si conexiuni
-│
-└── Frontend/              # Aplicatia React (Vite)
-    ├── src/
-    │   ├── pages/    # Dashboard, BatteryDetails, BatteryChart, Settings, Login
-    │   └── App.jsx        # Rutele principale
-    ├── .env               # Variabile de mediu (VITE_API_URL)
-    └── package.json       # Dependente proiect frontend
+ESP32 / BMS
+    ↓
+ASP.NET Core ingestion API
+    ↓
+RabbitMQ: telemetry_queue
+    ↓
+TelemetryConsumerService
+    ↓
+SQLite
+    ↓
+ASP.NET Core APIs
+    ↓
+React / Vite dashboard
 ```
----
 
-## 5. Ghid de Rulare (Pentru Testare Locala)
-* Daca esti nou in acest proiect si vrei sa testezi aplicatia pe calculatorul tau, urmeaza pasii de mai jos:
-* Pasul 1: Clonarea Repository-ului
-* Deschide terminalul si cloneaza proiectul:
+## Technology Stack
+
+### Backend
+
+- .NET 8
+- ASP.NET Core Web API
+- Entity Framework Core
+- SQLite
+- RabbitMQ.Client
+- JSON Web Tokens (JWT)
+- BCrypt.Net-Next
+- MailKit
+- Swagger / OpenAPI
+
+### Frontend
+
+- React
+- Vite
+- React Router
+- Recharts
+- Tailwind CSS
+
+### Simulation
+
+- `BmsStressTest` — .NET 8 console application for telemetry simulation and stress testing.
+
+## Repository Structure
+
+```text
+TelemetryApi/
+├── TelemetryApi/         # ASP.NET Core API and background telemetry consumer
+├── frontend/             # React + Vite dashboard
+├── BmsStressTest/        # Console telemetry simulator and stress test
+└── docker-compose.yml    # Local infrastructure configuration
+```
+
+## Prerequisites
+
+- Git
+- .NET 8 SDK
+- Node.js and npm
+- Docker Desktop with Docker Compose
+
+## Local Setup and Run Guide
+
+### 1. Clone the repository
 
 ```bash
-git clone [https://github.com/RazvanMurgu27/NumeRepo.git](https://github.com/RazvanMurgu27/NumeRepo.git)
-cd NumeRepo
+git clone https://github.com/RazvanMurgu27/TelemetryApi.git
+cd TelemetryApi
 ```
-* Pasul 2: Pornirea Brokerului RabbitMQ
-* Asigura-te ca ai instalat Docker si ruleaza containerul RabbitMQ:
+
+### 2. Start RabbitMQ
+
+From the repository root, start RabbitMQ using Docker Compose:
 
 ```bash
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+docker compose up -d rabbitmq
 ```
-* (Poti accesa panoul de control in browser la adresa http://localhost:15672 folosind user/parola guest/guest).
 
-* Pasul 3: Configurarea si Rularea Backend-ului
-* 1. Mergi in folderul TelemetryApi
-* 2. Verifica fisierul appsettings.json sa aiba hostname-ul RabbitMQ setat pe localhost.
-* 3. Ruleaza aplicatia C# din terminal sau din IDE-ul preferat (Visual Studio / Visual Studio Code):
+RabbitMQ Management UI is available at:
+
+```text
+http://localhost:15672
+```
+
+Use the credentials configured in `docker-compose.yml`. Do not commit production credentials to the repository.
+
+As an alternative, RabbitMQ can be started with Docker directly:
+
 ```bash
+docker run -d \
+  --name telemetry_rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:3-management
+```
+
+### 3. Run the backend
+
+Open a terminal at the repository root and run:
+
+```bash
+cd TelemetryApi
+dotnet restore
 dotnet run
 ```
-* Serverul va porni automat pe portul securizat HTTPS (de obicei https://localhost:7186).
-* Odata ce backend-ul este pornit, poti vizualiza si testa toate rutele 
-disponibile in mod interactiva accesand in browser:
-`https://localhost:7186/swagger` (sau portul indicat in terminalul tau).
-Swagger ofera o interfata vizuala directa pentru testarea ruterelor 
-de Autentificare, BMS, Setari si Telemetrie.
 
-* Pasul 4: Configurarea si Rularea Frontend-ului
-* 1. Deschide un terminal nou si mergi in folderul frontend.
-* 2. Creeaza un fisier numit .env in radacina folderului de frontend si adauga linia:
+The backend URL and HTTPS port are displayed in the terminal at startup. They can also be checked in:
 
-```code snippet
-VITE_API_URL=https://localhost:7186
+```text
+TelemetryApi/Properties/launchSettings.json
 ```
 
-* 3. Instaleaza dependentele si porneste aplicatia React:
+### 4. Run the frontend
+
+Open a second terminal at the repository root:
+
 ```bash
+cd frontend
 npm install
+```
+
+Create `frontend/.env` and set the backend URL:
+
+```env
+VITE_API_URL=https://localhost:<BACKEND_PORT>
+```
+
+Replace `<BACKEND_PORT>` with the actual HTTPS port reported by the backend.
+
+Start the frontend:
+
+```bash
 npm run dev
 ```
 
-* 4. Accesează link-ul afisat in terminal (de ex: http://localhost:5173) in browserul tau.
+Open the URL displayed by Vite in the terminal, commonly `http://localhost:5173`.
 
----
+## Secure Configuration
 
-## 6.Functionalitati Speciale(Data Seeder & Stress Test)
-* Pentru a simplifica evaluarea si testarea aplicatiei, sistemul include mecanisme dedicate:
-Data Seeder: La prima pornire a aplicatiei C#, baza de date SQLite este creata automat, iar aplicatia injecteaza un cont de administrator prestabilit (configurat in appsettings.json) impreuna cu setari implicite de siguranta pentru celule LiFePO4. Acest lucru elimina necesitatea configurarii manuale laborioase inainte de primul test.
----
-* BMS Stress Test (Simularea de Telemetrie): Daca doresti sa testezi comportamentul graficelor din React si reactia worker-ului RabbitMQ la un volum mare de date fara a avea fizic placheta ESP32 conectata, poti rula scriptul sau utilitarul de Stress Test integrat in backend. Acesta va genera mii de pachete de telemetrie simulate (cu variații de tensiune, curent, temperaturi si erori injectate), populand cozile RabbitMQ si testand performanta in timp real a dashboard-ului.
+Do not commit JWT keys, SMTP passwords, application passwords, or other sensitive values to the repository.
 
+The backend reads sensitive configuration values such as:
 
+- `Jwt:Key`
+- `EmailSettings:Email`
+- `EmailSettings:Password`
 
+For local development, use .NET User Secrets from the `TelemetryApi/` directory:
 
+```bash
+dotnet user-secrets init
+dotnet user-secrets set "Jwt:Key" "replace-with-a-long-random-key"
+dotnet user-secrets set "EmailSettings:Email" "your-email@example.com"
+dotnet user-secrets set "EmailSettings:Password" "your-app-password"
+```
+
+Environment variables can also be used with the corresponding double-underscore notation:
+
+```text
+Jwt__Key
+EmailSettings__Email
+EmailSettings__Password
+```
+
+## Data Seeding
+
+At startup, the backend:
+
+1. Ensures that the SQLite database exists.
+2. Seeds demo data only when the database is empty.
+3. Adds a demo BMS module with `DeviceId = SIM-001`.
+4. Generates time-series telemetry history.
+5. Includes anomaly scenarios for alert visualization and testing.
+
+To inspect or change the demo data, edit:
+
+```text
+TelemetryApi/Data/DataSeeder.cs
+```
+
+For security, this README intentionally does not expose demo credentials.
+
+## BMS Stress Test Simulator
+
+Run the simulator from the repository root:
+
+```bash
+dotnet run --project BmsStressTest
+```
+
+The simulator supports:
+
+- An optional custom `DeviceId` or randomly generated IDs from `SIM-001` to `SIM-050`.
+- 12V, 24V, and 48V battery systems, represented as 4S, 8S, and 16S configurations.
+- A configurable message publishing interval in milliseconds.
+- Publishing telemetry messages to the RabbitMQ `telemetry_queue` queue.
+
+Stop the simulator with `CTRL+C`.
+
+## API Endpoints
+
+The following routes match the existing controllers in `TelemetryApi/Controllers`.
+
+### Public endpoints
+
+- `POST /api/Auth/register`
+- `POST /api/Auth/login`
+- `POST /api/Telemetry`
+
+### JWT-protected endpoints
+
+- `GET /api/Telemetry/battery/{deviceId}`
+- `POST /api/Bms`
+- `GET /api/Bms/user/{userId}`
+- `DELETE /api/Bms/user/{deviceId}`
+- `GET /api/Settings/battery/{deviceId}`
+- `PUT /api/Settings`
+
+Protected endpoints require a valid JWT in the `Authorization` header.
+
+## Swagger / OpenAPI
+
+All API endpoints can be viewed and tested through the Swagger / OpenAPI interface while the backend is running in Development mode.
+
+Open the following URL, replacing `<BACKEND_PORT>` with the HTTPS port shown in the terminal:
+
+```text
+https://localhost:<BACKEND_PORT>/swagger
+```
+
+Swagger provides an interactive overview of the available authentication, BMS, settings, and telemetry routes. It can also be used to authorize requests with a JWT and test protected endpoints directly from the browser.
+
+## Screenshots
+
+### Dashboard Overview
+
+![image4](image4)
+
+Overview of the dashboard with battery status indicators and operational summary metrics.
+
+### Battery Details and Charts
+
+![image3](image3)
+
+Detailed battery telemetry view with historical charts and key electrical measurements.
+
+### Telemetry History and Alerts
+
+![image2](image2)
+
+Telemetry history table highlighting recorded measurements and active anomaly alerts.
+
+### Battery Safety Settings
+
+![image1](image1)
+
+Safety parameter configuration page for battery thresholds and protection settings.
+
+Do not include passwords, JWT tokens, SMTP credentials, private email addresses, or other sensitive information in screenshots.
+
+## Current Limitations
+
+- The current infrastructure is optimized for local development and demonstration using SQLite and a local RabbitMQ instance.
+- Queue reliability features such as retries, dead-letter queues, and advanced durability are limited in the current implementation.
+- Production deployment and environment-specific configuration are not fully documented yet.
+
+## Future Improvements
+
+- Add a production-ready RabbitMQ topology with durable queues, dead-letter queues, and retry policies.
+- Add automated tests for critical API and consumer flows.
+- Expand observability with structured logging, metrics, health checks, and distributed tracing.
+- Add containerized and cloud deployment profiles.
+- Add a production database and migration/backup strategy.
+
+## License
+
+No `LICENSE` file is currently defined in this repository. Add an explicit license if the project is intended to be reused or distributed publicly.
