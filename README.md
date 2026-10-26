@@ -1,6 +1,13 @@
 # IoT Smart Battery Management System (BMS) & Telemetry Platform
 
+![.NET](https://img.shields.io/badge/.NET_8.0-512BD4?style=for-the-badge&logo=dotnet)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+
 An end-to-end telemetry platform for LiFePO4 battery packs. The project connects IoT battery data ingestion with asynchronous processing, persistent storage, secure APIs, and a React dashboard for monitoring and configuration.
+
 
 ## Table of Contents
 
@@ -283,33 +290,72 @@ https://localhost:<BACKEND_PORT>/swagger
 
 Swagger provides an interactive overview of the available authentication, BMS, settings, and telemetry routes. It can also be used to authorize requests with a JWT and test protected endpoints directly from the browser.
 
+Authentication is required to access protected endpoints. Please follow these steps:
+
+1. **Register:** Go to `/api/Auth/register` to create a new account.
+2. **Login:** Go to `/api/Auth/login` and enter your credentials to receive a JWT access token.
+3. **Authorize:** Click the 'Authorize' button at the top of the Swagger page and input your token in the following format: `Bearer {your_token}`.
 ## Screenshots
 
 ### Dashboard Overview
 
-![image4](image4)
+![Dashboard](images/dashboard.png)
 
 Overview of the dashboard with battery status indicators and operational summary metrics.
 
-### Battery Details and Charts
+### Battery and Charts
 
-![image3](image3)
+![BatteryCharts](images/batterycharts.png)
 
 Detailed battery telemetry view with historical charts and key electrical measurements.
 
 ### Telemetry History and Alerts
 
-![image2](image2)
+![Telemetry](images/telemetrytable.png)
 
 Telemetry history table highlighting recorded measurements and active anomaly alerts.
 
 ### Battery Safety Settings
 
-![image1](image1)
+![BatterySettings](images/batterysettings.png)
 
 Safety parameter configuration page for battery thresholds and protection settings.
 
-Do not include passwords, JWT tokens, SMTP credentials, private email addresses, or other sensitive information in screenshots.
+## Login and Sign Up
+
+![Login](images/login.png)
+
+Secure Authentication Portal: Implements stateless JWT (JSON Web Token) authorization with BCrypt password hashing to protect user accounts, hardware telemetry configurations, and API endpoints.
+
+## Swagger
+
+![Swagger Route List](images/swagger2.png)
+
+Interactive API Documentation: The Swagger UI provides a comprehensive overview of all RESTful endpoints, logically grouped by controllers. It includes built-in JWT authorization for seamless in-browser testing of protected routes.
+
+![Swagger JSON Schema](images/swagger3.png)
+
+Detailed Endpoint Schema: Expanding an API route reveals the expected JSON request payloads, response models, and specific data types required for integration
+
+![Swagger JWT Modal](images/swagger4.png)
+
+JWT Authorization Modal: Users can securely authenticate by entering their Bearer token to unlock and test protected API routes.
+
+
+
+## RabbitMQ
+
+![Queue](images/rabbitmq.png)
+
+RabbitMQ Management UI during a backend stress test. The telemetry_queue handles high-throughput simulated BMS traffic with perfectly synchronized publish and consume rates, resulting in a zero-message backlog.
+
+## Stress Test
+
+![StressTest](images/StressTest1.png)
+![StressTest](images/StressTest2.png)
+![StressTest](images/StressTest3.png)
+
+BMS Stress Test Simulator: A custom .NET console application generating and publishing high-throughput simulated battery telemetry to RabbitMQ to validate backend performance.
 
 ## Current Limitations
 
