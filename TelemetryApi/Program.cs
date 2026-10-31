@@ -114,12 +114,10 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Expunerea panoului Swagger exclusiv in mediul de dezvoltare
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Expunerea panoului Swagger si in productie pentru demonstratii de portofoliu
+app.UseSwagger();
+app.UseSwaggerUI();
+
 
 // Aplicarea politicilor CORS la nivel global pe intreaga aplicatie
 app.UseCors("AllowAll");
