@@ -209,7 +209,7 @@ public class TelemetryConsumerService : BackgroundService
         await dbContext.SaveChangesAsync();
 
         var status = errorMessage != null ? $"[EROARE: {errorMessage}]" : "[OK]";
-        Console.WriteLine($"[DATABASE] Salvat in SQLite (Id: {record.Id}) -> Status: {status} | Putere: {record.Power}W");
+        Console.WriteLine($"[DATABASE] Salvat in baza de date (Id: {record.Id}) -> Status: {status} | Putere: {record.Power}W");
     }
 
     private (string? DbError, string? EmailAlert) EvaluateSafetyRules(TelemetryData telemetry, int cellCount, double cellMaxVoltage, double cellMinVoltage, double cellWarningVoltage, double maxTemperature, double minTemperature, double maxCurrent, double maxDeltaV)

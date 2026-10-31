@@ -58,9 +58,9 @@ public static class DataSeeder
         for (int i = 50; i >= 0; i--)
         {
             // Valori operationale nominale
-            double voltage = 13.2 + (random.NextDouble() * 0.2); 
-            double current = 2.0 + (random.NextDouble() * 10.0); // Curent de descarcare: 2A - 12A
-            double temperature = 22.0 + (random.NextDouble() * 2); 
+            double voltage = Math.Round(13.2 + (random.NextDouble() * 0.2), 2); 
+            double current = Math.Round(2.0 + (random.NextDouble() * 10.0), 2); 
+            double temperature = Math.Round(22.0 + (random.NextDouble() * 2), 1);
             
             string? errorMessage = null;
             DateTime? errorTimeStamp = null;
@@ -86,22 +86,20 @@ public static class DataSeeder
 
             // Scenariul 3: Dezechilibru masiv intre celule (Cell Imbalance)
             double avgCellVoltage = voltage / 4.0;
-            double highestCell = avgCellVoltage + 0.012; 
-            double lowestCell = avgCellVoltage - 0.008;
+            double highestCell = Math.Round(avgCellVoltage + 0.012, 3); 
+            double lowestCell = Math.Round(avgCellVoltage - 0.008, 3);
 
             if (i == 5)
             {
-                highestCell = avgCellVoltage + 0.25; 
-                lowestCell = avgCellVoltage - 0.30;  
+                highestCell = Math.Round(avgCellVoltage + 0.25, 3); 
+                lowestCell = Math.Round(avgCellVoltage - 0.30, 3); 
                 errorMessage = "Dezechilibru masiv celule (ΔV > 0.5V)";
                 errorTimeStamp = DateTime.UtcNow.AddMinutes(-i * 5);
             }
 
             // --- CALCULUL FIZIC AL PUTERII SI CAPACITATII ---
             
-            // Aplicarea legii lui Ohm (P = U * I)
-            double power = voltage * current; 
-
+            double power = Math.Round(voltage * current, 2);
             // Simulare liniara a scaderii State of Charge (SOC) pe baza curentului
             currentSoc -= (current * 0.04); 
             if (currentSoc < 10) currentSoc = 10; // Capping la 10%

@@ -5,6 +5,7 @@ using System.Security.Claims;
 using TelemetryApi.Models;
 using TelemetryApi.Data;
 using TelemetryApi.Services;
+using TelemetryApi.Attributes;
 
 namespace TelemetryApi.Controllers;
 
@@ -39,8 +40,10 @@ public class TelemetryController : ControllerBase
     /// <param name="data">Pachetul de telemetrie brut primit de la hardware (JSON).</param>
     /// <returns>Confirmare instanta (200 OK) pentru a minimiza latenta pe dispozitivul IoT.</returns>
     [HttpPost]
+    [ApiKey]
     public async Task<IActionResult> PostTelemetry([FromBody] TelemetryData data)
     {
+        data.TimeStamp = DateTime.UtcNow;
         // 1. Serializare si publicare pe Message Broker (RabbitMQ)
         await _rabbitMqService.SendMessageAsync(data);
         

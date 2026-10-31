@@ -149,7 +149,7 @@ export default function BatteryDetails() {
                                         return (
                                             <tr key={keyID} className="hover:bg-slate-700/30 transition-colors">
                                                 <td className="px-6 py-4 text-left text-sm text-slate-400">
-                                                    {new Date(record.timestamp + "Z").toLocaleString()}
+                                                    {new Date(record.timestamp).toLocaleString()}
                                                 </td>
                                                 <td className="px-6 py-4 font-bold text-white text-center tabular-nums">
                                                     {record.voltage != null ? record.voltage.toFixed(2) : "N/A"}
@@ -182,7 +182,7 @@ export default function BatteryDetails() {
                                                 </td>
                                                 <td className="px-6 py-4 text-left text-sm text-slate-400">
                                                     {record.errorMessage && record.errorTimeStamp
-                                                        ? new Date(record.errorTimeStamp + "Z").toLocaleString()
+                                                        ? new Date(record.errorTimeStamp).toLocaleString()
                                                         : <span className="text-slate-600">-</span>}
                                                 </td>
                                             </tr>
