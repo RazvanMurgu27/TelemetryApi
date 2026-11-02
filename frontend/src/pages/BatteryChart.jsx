@@ -33,7 +33,7 @@ export default function BatteryChart({ telemetry }) {
 
         return {
             ...record,
-            timeLabel: new Date(record.timestamp + "Z").toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second:'2-digit' }),
+            timeLabel: new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second:'2-digit' }),
             deltaV: calcDelta
         };
     });

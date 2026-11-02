@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TelemetryApi.Models;
 
@@ -12,6 +13,7 @@ public class User
     /// Identificatorul unic al utilizatorului in baza de date (Primary Key).
     /// </summary>
     [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int Id { get; set; }
 
     /// <summary>

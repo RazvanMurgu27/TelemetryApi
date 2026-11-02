@@ -19,6 +19,7 @@ public class TelemetryConsumerService : BackgroundService
     private readonly string _queueName = "telemetry_queue";
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly EmailService _emailService;
+    private readonly ConnectionFactory _connectionFactory;
 
     private IConnection _connection = null!;
     private IChannel _channel = null!;
@@ -27,10 +28,14 @@ public class TelemetryConsumerService : BackgroundService
     private readonly Dictionary<string, (DateTime LastSeen, int LastSoc)> _lastSeenBatteries = new();
     private readonly System.Timers.Timer _connectionTimer;
 
-    public TelemetryConsumerService(IServiceScopeFactory scopeFactory, EmailService emailService)
+    public TelemetryConsumerService(
+        IServiceScopeFactory scopeFactory,
+        EmailService emailService,
+        IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
         _emailService = emailService;
+        _connectionFactory = RabbitMqConnectionFactory.Create(configuration);
 
         // Configureaza un timer de tip Watchdog (60 sec) pentru a detecta pierderea conexiunii cu hardware-ul
         _connectionTimer = new System.Timers.Timer(60000);
@@ -42,7 +47,7 @@ public class TelemetryConsumerService : BackgroundService
     /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var factory = new ConnectionFactory { HostName = "localhost" };
+        var factory = _connectionFactory;
         _connection = await factory.CreateConnectionAsync();
         _channel = await _connection.CreateChannelAsync();
 

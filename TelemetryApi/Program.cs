@@ -103,15 +103,21 @@ using (var scope = app.Services.CreateScope())
     {
         var dbContext = services.GetRequiredService<AppDbContext>();
         
-        dbContext.Database.EnsureCreated();
+        dbContext.Database.Migrate();
         DataSeeder.Initialize(services);
     }
     catch (Exception ex)
+{
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine($"[CRITICAL] Eroare la initializarea bazei de date: {ex.Message}");
+    
+    if (ex.InnerException != null)
     {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"[CRITICAL] Eroare la initializarea bazei de date: {ex.Message}");
-        Console.ResetColor();
+        Console.WriteLine($"[INNER EXCEPTION]: {ex.InnerException.Message}");
     }
+    
+    Console.ResetColor();
+}
 }
 
 // Expunerea panoului Swagger si in productie pentru demonstratii de portofoliu

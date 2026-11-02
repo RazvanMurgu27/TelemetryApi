@@ -12,7 +12,7 @@ namespace TelemetryApi.Services;
 /// </summary>
 public class RabbitMqService
 {
-    private readonly string _hostname;
+    private readonly ConnectionFactory _connectionFactory;
     private readonly string _queueName = "telemetry_queue";
 
     /// <summary>
@@ -22,7 +22,7 @@ public class RabbitMqService
     public RabbitMqService(IConfiguration configuration)
     {
         // Cauta host-ul in appsettings.json, iar daca nu il gaseste, foloseste "localhost" ca fallback
-        _hostname = configuration["RabbitMQ:HostName"] ?? "localhost";
+        _connectionFactory = RabbitMqConnectionFactory.Create(configuration);
     }
 
     /// <summary>
@@ -32,7 +32,7 @@ public class RabbitMqService
     public async Task SendMessageAsync(TelemetryData data)
     {
         // 1. Configurarea si deschiderea conexiunii TCP catre broker-ul RabbitMQ (port standard: 5672)
-        var factory = new ConnectionFactory() { HostName = _hostname };
+        var factory = _connectionFactory;
 
         // Folosim 'using' pentru a ne asigura ca eliberam resursele de retea la finalul metodei (Dispose)
         using var connection = await factory.CreateConnectionAsync();

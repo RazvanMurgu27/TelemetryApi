@@ -17,8 +17,8 @@ public static class DataSeeder
     {
         using var context = serviceProvider.GetRequiredService<AppDbContext>();
 
-        // 1. Validarea si crearea automata a schemei bazei de date (Code-First Approach)
-        context.Database.EnsureCreated();
+        // // 1. Validarea si crearea automata a schemei bazei de date (Code-First Approach)
+        // context.Database.EnsureCreated();
 
         // 2. Mecanism de tip Idempotency: Previne duplicarea datelor daca seeder-ul este rulat de mai multe ori
         if (context.Users.Any())
@@ -29,7 +29,7 @@ public static class DataSeeder
         // 3. Crearea unui cont de inginer (Test User) securizat
         var testUser = new User 
         { 
-            Email = "student@upt.ro", 
+            Email = "test@gmail.com", 
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123")
         };
         
