@@ -204,6 +204,7 @@ The backend reads sensitive configuration values such as:
 - `Jwt:Key`
 - `EmailSettings:Email`
 - `EmailSettings:Password`
+- `HardwareApiKey` when demo mode is disabled
 
 For local development, use .NET User Secrets from the `TelemetryApi/` directory:
 
@@ -221,6 +222,34 @@ Jwt__Key
 EmailSettings__Email
 EmailSettings__Password
 ```
+
+### Demo access
+
+The repository includes an explicitly marked demo configuration so evaluators can
+run the complete application without receiving a production secret:
+
+```text
+Email: test@gmail.com
+Password: password123
+Device ID: SIM-001
+Hardware API key: telemetry-demo-key
+```
+
+Use the `X-Api-Key` header with `telemetry-demo-key` when calling
+`POST /api/Telemetry`. This key is intentionally public and must not be reused
+in production.
+
+For Azure, configure the following Application Settings:
+
+```text
+Demo__Enabled=true
+Demo__HardwareApiKey=telemetry-demo-key
+```
+
+This keeps the public demo available without exposing a production secret.
+When the application is moved to production, set `Demo__Enabled=false` and
+configure `HardwareApiKey` with a new secret value. Keep JWT, email, database,
+RabbitMQ, and hardware credentials in Azure Application Settings or Key Vault.
 
 ## Data Seeding
 

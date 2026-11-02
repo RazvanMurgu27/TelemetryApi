@@ -27,7 +27,10 @@ public class ApiKeyAttribute : Attribute, IAsyncActionFilter
         }
 
         var configuration = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-        var validApiKey = configuration.GetValue<string>("HardwareApiKey");
+        var demoEnabled = configuration.GetValue("Demo:Enabled", false);
+        var validApiKey = demoEnabled
+            ? configuration["Demo:HardwareApiKey"]
+            : configuration["HardwareApiKey"];
         
         if (!string.Equals(validApiKey, extractedApiKey.ToString(), StringComparison.Ordinal))
         {
