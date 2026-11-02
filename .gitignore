@@ -1,4 +1,4 @@
-# Baza de date SQLite
+# Database files
 *.db
 *.db-shm
 *.db-wal
@@ -6,17 +6,26 @@
 # Backend C# (.NET)
 bin/
 obj/
+publish/
 .vs/
 *.user
+appsettings.Development.json
+*.userprefs
+TestResults/
+coverage/
 
- 
 # Frontend React (Node.js)
 node_modules/
 dist/
 npm-debug.log*
+.env
+.env.*
+!.env.example
+*.zip
 
 # Fisiere de sistem OS (macOS)
 .DS_Store
+*.suo
 
-#Mediu Frontend
-.env
+# Editor
+.vscode/

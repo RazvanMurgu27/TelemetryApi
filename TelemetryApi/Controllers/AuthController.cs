@@ -14,7 +14,7 @@ using TelemetryApi.Data;
 namespace TelemetryApi.Controllers;
 
 /// <summary>
-/// Controller responsabil cu gestionarea identitatii utilizatorilor (Identity & Access Management).
+/// Controller responsabil cu gestionarea identitatii utilizatorilor (Identity and Access Management).
 /// Expune rutele publice pentru inregistrare si autentificare, utilizand criptarea BCrypt si token-uri JWT.
 /// </summary>
 [ApiController]

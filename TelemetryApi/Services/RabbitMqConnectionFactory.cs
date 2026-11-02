@@ -2,8 +2,20 @@ using RabbitMQ.Client;
 
 namespace TelemetryApi.Services;
 
+/// <summary>
+/// Creează configurația de conectare utilizată de serviciile RabbitMQ.
+/// </summary>
 public static class RabbitMqConnectionFactory
 {
+    /// <summary>
+    /// Construiește o fabrică RabbitMQ folosind fie URI-ul complet din configurație,
+    /// fie setările individuale pentru host, port, virtual host și autentificare.
+    /// </summary>
+    /// <param name="configuration">Configurația aplicației care conține setările RabbitMQ.</param>
+    /// <returns>O fabrică configurată pentru crearea conexiunilor RabbitMQ.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Este aruncată atunci când URI-ul RabbitMQ configurat nu are un format valid.
+    /// </exception>
     public static ConnectionFactory Create(IConfiguration configuration)
     {
         var connectionString = configuration["RabbitMQ:ConnectionString"];

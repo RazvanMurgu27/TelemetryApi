@@ -28,6 +28,18 @@ public class TelemetryConsumerService : BackgroundService
     private readonly Dictionary<string, (DateTime LastSeen, int LastSoc)> _lastSeenBatteries = new();
     private readonly System.Timers.Timer _connectionTimer;
 
+    /// <summary>
+    /// Inițializează serviciul de consum al mesajelor de telemetrie și conexiunea RabbitMQ.
+    /// </summary>
+    /// <param name="scopeFactory">
+    /// Fabrica utilizată pentru crearea scope-urilor independente pentru accesul la baza de date.
+    /// </param>
+    /// <param name="emailService">
+    /// Serviciul utilizat pentru trimiterea alertelor prin email.
+    /// </param>
+    /// <param name="configuration">
+    /// Configurația aplicației utilizată pentru crearea conexiunii RabbitMQ.
+    /// </param>
     public TelemetryConsumerService(
         IServiceScopeFactory scopeFactory,
         EmailService emailService,
@@ -45,6 +57,7 @@ public class TelemetryConsumerService : BackgroundService
     /// <summary>
     /// Metoda principala de executie a serviciului de fundal. Ruleaza continuu cat timp aplicatia este pornita.
     /// </summary>
+    /// <param name="stoppingToken">Token de anulare semnalat la oprirea aplicației.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var factory = _connectionFactory;
@@ -134,6 +147,8 @@ public class TelemetryConsumerService : BackgroundService
     /// <summary>
     /// Metoda de tip Watchdog (Dead Man's Switch). Verifica periodic daca o baterie a incetat brusc transmisia.
     /// </summary>
+    /// <param name="sender">Obiectul care a declanșat evenimentul timerului.</param>
+    /// <param name="e">Datele asociate evenimentului de expirare a timerului.</param>
     private async void CheckOfflineBatteries(object? sender, ElapsedEventArgs e)
     {
         var now = DateTime.UtcNow;
@@ -193,6 +208,11 @@ public class TelemetryConsumerService : BackgroundService
     /// <summary>
     /// Persista inregistrarea de telemetrie impreuna cu statusul calculat in baza de date SQLite.
     /// </summary>
+    /// <param name="dbContext">Contextul bazei de date în care este salvată telemetria.</param>
+    /// <param name="telemetry">Pachetul de telemetrie primit de la dispozitiv.</param>
+    /// <param name="errorMessage">
+    /// Mesajul de siguranță asociat pachetului sau <see langword="null"/> dacă nu există erori.
+    /// </param>
     private async Task SaveToDatabaseAsync(AppDbContext dbContext, TelemetryData telemetry, string? errorMessage)
     {
         var record = new TelemetryRecord
@@ -217,6 +237,22 @@ public class TelemetryConsumerService : BackgroundService
         Console.WriteLine($"[DATABASE] Salvat in baza de date (Id: {record.Id}) -> Status: {status} | Putere: {record.Power}W");
     }
 
+    /// <summary>
+    /// Evaluează valorile de telemetrie folosind pragurile de siguranță configurate pentru baterie.
+    /// </summary>
+    /// <param name="telemetry">Pachetul de telemetrie care trebuie evaluat.</param>
+    /// <param name="cellCount">Numărul de celule conectate în serie în bateria monitorizată.</param>
+    /// <param name="cellMaxVoltage">Tensiunea maximă admisă pentru o celulă.</param>
+    /// <param name="cellMinVoltage">Tensiunea minimă admisă pentru o celulă.</param>
+    /// <param name="cellWarningVoltage">Pragul de avertizare pentru tensiunea unei celule.</param>
+    /// <param name="maxTemperature">Temperatura maximă admisă a bateriei.</param>
+    /// <param name="minTemperature">Temperatura minimă admisă a bateriei.</param>
+    /// <param name="maxCurrent">Curentul maxim admis al bateriei.</param>
+    /// <param name="maxDeltaV">Diferența maximă admisă între tensiunile celulelor.</param>
+    /// <returns>
+    /// Un tuplu cu mesajul pentru baza de date și mesajul pentru alerta prin email.
+    /// Fiecare valoare este <see langword="null"/> dacă nu a fost detectată o abatere.
+    /// </returns>
     private (string? DbError, string? EmailAlert) EvaluateSafetyRules(TelemetryData telemetry, int cellCount, double cellMaxVoltage, double cellMinVoltage, double cellWarningVoltage, double maxTemperature, double minTemperature, double maxCurrent, double maxDeltaV)
     {
         var dbErrors = new List<string>();
