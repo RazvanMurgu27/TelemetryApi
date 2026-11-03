@@ -267,7 +267,7 @@ public class TelemetryConsumerService : BackgroundService
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"  [ALERTA CRITICA] Bateria {telemetry.DeviceId} depaseste temperatura maxima! Real: {telemetry.Temperature}°C (Max: {maxTemperature}°C)");
             Console.ResetColor();
-            var msg = $"Supra-temperatura ({telemetry.Temperature}°C > {maxTemperature}°C)";
+            var msg = $"🌡️Supraincalzire ({telemetry.Temperature}°C > {maxTemperature}°C)";
             dbErrors.Add(msg);
             emailAlerts.Add(msg);
         }
@@ -276,7 +276,7 @@ public class TelemetryConsumerService : BackgroundService
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"  [ALERTA] Risc de înghet (Lithium Plating) pe {telemetry.DeviceId}! ({telemetry.Temperature}°C)");
             Console.ResetColor();
-            var msg = $"Sub-temperatura ({telemetry.Temperature})°C";
+            var msg = $"🥶Temperatura critica ({telemetry.Temperature})°C";
             dbErrors.Add(msg);
             emailAlerts.Add(msg);
         }
@@ -286,7 +286,7 @@ public class TelemetryConsumerService : BackgroundService
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($" [ALERTA] Supra-tensiune pe bateria {telemetry.DeviceId}! Real: {telemetry.Voltage}V (Max: {PackMaxVoltage}V)");
             Console.ResetColor();
-            var msg = $"Supra-tensiune ({telemetry.Voltage}V > {PackMaxVoltage}V)";
+            var msg = $"⚠️Tensiune maxima depasita ({telemetry.Voltage}V > {PackMaxVoltage}V)";
             dbErrors.Add(msg);
             emailAlerts.Add(msg);
         }
@@ -296,7 +296,7 @@ public class TelemetryConsumerService : BackgroundService
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($" [AVERTISMENT] Sub-tensiune pe bateria {telemetry.DeviceId}! Real: {telemetry.Voltage}V (Min: {PackMinVoltage}V)");
             Console.ResetColor();
-            var msg = $"Sub-tensiune ({telemetry.Voltage}V < {PackMinVoltage}V)";
+            var msg = $"❗️Nivel critic de descarcare ({telemetry.Voltage}V < {PackMinVoltage}V)";
             dbErrors.Add(msg);
             emailAlerts.Add(msg);
         }
@@ -305,7 +305,7 @@ public class TelemetryConsumerService : BackgroundService
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine($" [INFO] Pre-avertizare descarcare pe {telemetry.DeviceId}. ({telemetry.Voltage}V)");
             Console.ResetColor();
-            var msg = $"Pre-avertizare descarcare (<={PackWarningVoltage}V)";
+            var msg = $"⚠️Pre-avertizare descarcare (<={PackWarningVoltage}V)";
             dbErrors.Add(msg);
             emailAlerts.Add(msg);
         }
@@ -315,7 +315,7 @@ public class TelemetryConsumerService : BackgroundService
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine($"[ALERTA] Supracurent pe {telemetry.DeviceId}! ({telemetry.Current}A)");
             Console.ResetColor();
-            var msg = $"Supracurent ({telemetry.Current}A)";
+            var msg = $"⚡️Supracurent ({telemetry.Current}A)";
             dbErrors.Add(msg);
             emailAlerts.Add(msg);
         }
@@ -328,7 +328,7 @@ public class TelemetryConsumerService : BackgroundService
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"[ALERTA CRITICA] Dezechilibru pe {telemetry.DeviceId}! Delta V: {Math.Round(deltaV, 3)}V (Max admis: {maxDeltaV}V)");
                 Console.ResetColor();
-                var msg = $"Dezechilibru sever (Delta v = {Math.Round(deltaV, 3)}V)";
+                var msg = $"⚖️Dezechilibru sever (Delta v = {Math.Round(deltaV, 3)}V)";
                 dbErrors.Add(msg);
                 emailAlerts.Add(msg);
             }
@@ -360,7 +360,7 @@ public class TelemetryConsumerService : BackgroundService
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"[INFO] Bateria {telemetry.DeviceId} este complet incarcata (100%)!");
             Console.ResetColor();
-            emailAlerts.Add($"Incarcare completa: (100%)");
+            emailAlerts.Add($"🔋Incarcare completa: (100%)");
         }
         
         if (telemetry.Soc <= 10)
@@ -368,7 +368,7 @@ public class TelemetryConsumerService : BackgroundService
             Console.ForegroundColor = ConsoleColor.DarkRed;
             Console.WriteLine($"[ALERTA] Bateria {telemetry.DeviceId} necesita incarcare! SOC:{telemetry.Soc}%");
             Console.ResetColor();
-            emailAlerts.Add($"Descarcare critica: (<=10%)");
+            emailAlerts.Add($"🪫Descarcare critica: (<=10%)");
         }
 
         string? finalDbError = dbErrors.Count > 0 ? string.Join(" | ", dbErrors) : null;

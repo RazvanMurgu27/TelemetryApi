@@ -72,7 +72,7 @@ public static class DataSeeder
             {
                 current = 85.5; 
                 voltage -= 0.4; 
-                errorMessage = "Supracurent la descărcare (>80A)";
+                errorMessage = $"⚡️Supracurent ({current}A)";
                 errorTimeStamp = DateTime.UtcNow.AddMinutes(-i * 5);
             }
             
@@ -80,7 +80,7 @@ public static class DataSeeder
             if (i == 20)
             {
                 temperature = 68.5; 
-                errorMessage = "Temperatură critică (>65°C)";
+                errorMessage = $"🌡️Supraincalzire ({temperature}°C > 55°C)";
                 errorTimeStamp = DateTime.UtcNow.AddMinutes(-i * 5);
             }
 
@@ -93,7 +93,7 @@ public static class DataSeeder
             {
                 highestCell = Math.Round(avgCellVoltage + 0.25, 3); 
                 lowestCell = Math.Round(avgCellVoltage - 0.30, 3); 
-                errorMessage = "Dezechilibru masiv celule (ΔV > 0.5V)";
+                errorMessage = $"⚖️Dezechilibru sever (Delta v = {Math.Round(highestCell - lowestCell, 3)}V)";
                 errorTimeStamp = DateTime.UtcNow.AddMinutes(-i * 5);
             }
 
